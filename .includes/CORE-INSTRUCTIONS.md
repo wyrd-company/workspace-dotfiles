@@ -1,0 +1,4 @@
+<core-instructions>
+- When using subagents do not default to your own model. Try to match the model's capability to the work being delegated.
+- Git: commit and push as the human operator you are working for, `git <handle> <command>` (for example `git boblangley push`). The operators are the files in `~/.config/git/operators/`; ask if you do not know which one you are working for. Commits and pushes are that person's, made with their key from the forwarded ssh-agent; `gh` actions (PRs, issues, comments) are your GitHub App's. Plain `git commit` and git over SSH are refused on purpose, and `git automation` is for automation only.
+</core-instructions>

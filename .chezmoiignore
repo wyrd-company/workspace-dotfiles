@@ -1,0 +1,7 @@
+.includes/**/*.*
+# Deferred: no grok access yet
+.grok
+docs/**/*.*
+AGENTS.md
+LICENSE
+README.md

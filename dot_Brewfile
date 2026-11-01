@@ -1,0 +1,33 @@
+tap "anomalyco/tap", trusted: true
+tap "antopolskiy/tap", trusted: true
+tap "charmbracelet/tap", trusted: true
+tap "dotenvx/brew", trusted: true
+tap "go-task/tap", trusted: true
+tap "equinix-labs/otel-cli", trusted: true
+tap "thoughtbot/formulae", trusted: true
+tap "wyrd-company/tools", trusted: true
+
+brew "thoughtbot/formulae/complexity"
+brew "charmbracelet/tap/freeze"
+brew "dotenvx"
+brew "gh"
+brew "gifsicle"
+brew "glow"
+brew "gum"
+brew "wyrd-company/tools/gitpr"
+brew "imagemagick"
+brew "antopolskiy/tap/kanban-md"
+brew "lefthook"
+brew "anomalyco/tap/opencode"
+brew "openbao"
+brew "otel-cli"
+brew "pipx"
+brew "prettier"
+brew "ripgrep"
+brew "rumdl"
+brew "wyrd-company/tools/seek-cli"
+brew "go-task/tap/go-task"
+brew "wyrd-company/tools/toha"
+brew "vhs"
+brew "yq"
+brew "zellij"

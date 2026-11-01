@@ -1,0 +1,13 @@
+{
+  "providers": {
+    "cursor": {
+      "enabled": false
+    },
+    "grok": {
+      "enabled": false
+    },
+    "opencode": {
+      "enabled": false
+    }
+  }
+}

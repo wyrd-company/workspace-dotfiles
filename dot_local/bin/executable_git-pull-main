@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Locate the main worktree directory (adjust path if needed)
+MAIN_DIR="${1:-../main}"
+
+if [ ! -d "$MAIN_DIR" ]; then
+    echo "Error: Directory '$MAIN_DIR' does not exist." >&2
+    exit 1
+fi
+
+# Ensure permissions are always restored, even if git pull fails or is cancelled
+restore_ro() {
+    chmod -R a-w "$MAIN_DIR"
+}
+trap restore_ro EXIT
+
+# 1. Temporarily restore user write permissions
+chmod -R u+w "$MAIN_DIR"
+
+# 2. Pull latest changes
+git -C "$MAIN_DIR" pull --ff-only
+
+echo "Successfully updated $MAIN_DIR and locked permissions to read-only."

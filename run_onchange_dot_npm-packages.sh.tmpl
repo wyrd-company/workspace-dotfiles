@@ -1,0 +1,4 @@
+#!/bin/bash
+# dot_npm-packages hash: {{ include "dot_npm-packages" | sha256sum }}
+set -e
+xargs npm install -g < {{ joinPath .chezmoi.sourceDir "dot_npm-packages" | quote }}

@@ -1,0 +1,4 @@
+#!/bin/bash
+# dot_Brewfile hash: {{ include "dot_Brewfile" | sha256sum }}
+set -e
+brew bundle --file {{ joinPath .chezmoi.sourceDir "dot_Brewfile" | quote }}

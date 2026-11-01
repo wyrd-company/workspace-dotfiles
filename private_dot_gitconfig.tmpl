@@ -1,0 +1,10 @@
+[user]
+	# No name/email here on purpose: commits must go through `git <handle> ...` (see ~/.local/bin/git-as),
+	# which sets both per operator. useConfigOnly makes a bare `git commit` fail instead of guessing.
+	useConfigOnly = true
+
+[core]
+    excludesfile = /home/vscode/.gitignore_global
+    # Refuses any SSH git operation not run through `git <handle>`; the wrapper overrides this with -c.
+    sshCommand = /home/vscode/.local/bin/git-ssh-guard
+    editor = nano

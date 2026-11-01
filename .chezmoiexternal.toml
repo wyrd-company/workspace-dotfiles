@@ -1,0 +1,8 @@
+# Shared skills: a real clone, not a mount, so changes are made on a branch and
+# go up as PRs. Pi and Codex read ~/.agents/skills directly; Claude Code gets a
+# symlink per skill from run_after_link-claude-skills.sh. No refreshPeriod: a
+# `git pull` on every apply would fight a PR branch checked out in the clone.
+[".agents/skills"]
+    type = "git-repo"
+    url = "https://github.com/wyrd-company/skills.git"
+    clone.args = ["--branch", "main"]

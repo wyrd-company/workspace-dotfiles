@@ -1,0 +1,18 @@
+harnesses:
+  claude: wyrd-claude[bot]        # CLAUDECODE
+  codex: wyrd-codex[bot]          # CODEX_THREAD_ID
+  pi: wyrd-pi[bot]                # PI_CODING_AGENT
+
+apps:
+  wyrd-automation[bot]:
+    app_id: 5551515
+    transit_key: gh-app-wyrd-automation
+  wyrd-claude[bot]:
+    app_id: 
+    transit_key: gh-app-wyrd-claude
+  wyrd-codex[bot]:
+    app_id: 
+    transit_key: gh-app-wyrd-codex
+  wyrd-pi[bot]:
+    app_id: 
+    transit_key: gh-app-wyrd-pi

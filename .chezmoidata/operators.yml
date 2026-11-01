@@ -1,0 +1,12 @@
+# Humans who operate the agents in a shared devcontainer. Nothing here is secret; emails live in
+# OpenBao at kv/workspace/operators/<handle> (see docs/vault.md).
+# Each operator gets `git <handle> ...` (a wrapper that commits and pushes as them), rendered by
+# run_onchange_after_git-operators.sh.tmpl. The matching private key must be loaded in the forwarded
+# ssh-agent (wyrwood can hold several); the .pub here only selects it.
+operators:
+  - handle: boblangley
+    name: Bob Langley
+    github_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDPlOSi6iftp6TgGG3w6WDOZco7HVfab9/cgO98+2i0e GitHub"
+  - handle: iradesa
+    name: Katelyn Langley
+    github_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP9nkCXpPlHezYlqOZckn3bS8C+msfFpokJrJKZN0+2i"

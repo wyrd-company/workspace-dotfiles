@@ -1,0 +1,29 @@
+#!/bin/sh
+# Renders one `git <handle>` wrapper per operator from .chezmoidata/operators.yml.
+# Emails come from OpenBao at kv/workspace/operators/<handle> (see docs/vault.md).
+# Re-runs whenever that data changes: {{ .operators | toJson | sha256sum }}
+set -e
+mkdir -p "$HOME/.local/bin"
+install -d -m 0755 "$HOME/.config/git/operators"
+install -d -m 0700 "$HOME/.ssh"
+{{ range .operators }}
+ln -sfn git-as "$HOME/.local/bin/git-{{ .handle }}"
+printf '%s\n' {{ .github_pubkey | quote }} > "$HOME/.ssh/github_{{ .handle }}.pub"
+chmod 0644 "$HOME/.ssh/github_{{ .handle }}.pub"
+cat > "$HOME/.config/git/operators/{{ .handle }}" <<'OPERATOR'
+OP_NAME={{ .name | quote }}
+OP_PUBKEY="$HOME/.ssh/github_{{ .handle }}.pub"
+{{- range $owner, $email := (vault (printf "kv/workspace/operators/%s" .handle)).data.data }}
+OP_EMAIL_{{ $owner | upper | replace "-" "_" }}={{ $email | quote }}
+{{- end }}
+OPERATOR
+{{ end }}
+# remove wrappers for operators no longer listed
+for f in "$HOME"/.config/git/operators/*; do
+  [ -e "$f" ] || continue
+  h=$(basename "$f")
+  case " {{ range .operators }}{{ .handle }} {{ end }}" in
+    *" $h "*) ;;
+    *) rm -f "$f" "$HOME/.local/bin/git-$h" "$HOME/.ssh/github_$h.pub" ;;
+  esac
+done

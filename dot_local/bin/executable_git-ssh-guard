@@ -1,0 +1,12 @@
+#!/bin/sh
+# Global core.sshCommand. Any git network operation over SSH that did not come through `git <handle>`
+# lands here and is refused, so no commit or push can go out under an ambiguous identity.
+# Replaces a pre-push hook: it needs no core.hooksPath, so repo hooks (lefthook etc.) are untouched,
+# and it also covers fetch/clone/pull of private repos.
+if [ -n "$GIT_OPERATOR" ]; then
+  exec ssh "$@"   # unreachable in practice: the wrapper overrides core.sshCommand with -c
+fi
+ops=$(ls "$HOME/.config/git/operators" 2>/dev/null | tr '\n' ' ')
+echo "git: direct SSH access is blocked. Re-run the same git command as an operator: git <handle> <command>" >&2
+echo "     known operators: ${ops:-none configured}   (also: bare 'git commit' is refused; use the same wrapper)" >&2
+exit 1
