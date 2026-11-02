@@ -1,5 +1,7 @@
 # Atomic writes rename from one temporary directory per device number, which fails across bind mounts of one disk
 # (~/.claude, ~/.codex and ~/.pi): "invalid cross-device link".
 safe: false
+# The playbook runs under umask 002 and terminals under 022. Without one setting, each sees the other's files as changed.
+umask: 0o022
 vault:
   command: bao
