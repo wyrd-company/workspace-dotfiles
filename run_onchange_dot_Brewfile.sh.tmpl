@@ -1,4 +1,6 @@
 #!/bin/bash
 # dot_Brewfile hash: {{ include "dot_Brewfile" | sha256sum }}
 set -e
+# The image's Homebrew can be too old to read current taps; `brew bundle` counts those as failures
+brew update --quiet
 brew bundle --file {{ joinPath .chezmoi.sourceDir "dot_Brewfile" | quote }}
