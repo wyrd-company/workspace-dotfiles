@@ -2,7 +2,6 @@ tap "anomalyco/tap", trusted: true
 tap "antopolskiy/tap", trusted: true
 tap "charmbracelet/tap", trusted: true
 tap "dotenvx/brew", trusted: true
-tap "go-task/tap", trusted: true
 tap "equinix-labs/otel-cli", trusted: true
 tap "thoughtbot/formulae", trusted: true
 tap "wyrd-company/tools", trusted: true
@@ -26,7 +25,7 @@ brew "prettier"
 brew "ripgrep"
 brew "rumdl"
 brew "wyrd-company/tools/seek-cli"
-cask "go-task/tap/go-task"
+brew "go-task"
 brew "wyrd-company/tools/toha"
 brew "vhs"
 brew "yq"
