@@ -1,4 +1,6 @@
 <core-instructions>
 - When using subagents do not default to your own model. Try to match the model's capability to the work being delegated.
 - Git: commit and push as the human operator you are working for, `git <handle> <command>` (for example `git boblangley push`). The operators are the files in `~/.config/git/operators/`; ask if you do not know which one you are working for. Commits and pushes are that person's, made with their key from the forwarded ssh-agent; `gh` actions (PRs, issues, comments) are your GitHub App's. Plain `git commit` and git over SSH are refused on purpose, and `git automation` is for automation only.
+- `gh`: the `gh` on your PATH is a shim that mints a GitHub App token for the repository's owner on every call. Outside a repository it stops with `can't determine target org`, on purpose: run it from a repository, or name one with `--repo <owner>/<repo>`. `gh api` has no `--repo`, so set `GH_REPO=<owner>/<repo>` instead. Do not set `GH_OWNER` or log in another way to get around it. `gh api /app` returns 401 because these are installation tokens, not App JWTs.
+- `bao`: secrets come through the Wyrwood socket, and the container holds no token, so never look for one or ask for one. A 403 means the bound Wyrwood policy doesn't grant that path: report it and don't look for another way in.
 </core-instructions>
