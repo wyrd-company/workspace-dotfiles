@@ -1,2 +1,5 @@
+# Atomic writes rename from one temporary directory per device number, which fails across bind mounts of one disk
+# (~/.claude, ~/.codex and ~/.pi): "invalid cross-device link".
+safe: false
 vault:
   command: bao
