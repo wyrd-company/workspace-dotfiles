@@ -9,4 +9,4 @@ operators:
     github_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM+dlxMMudB7lYe1kLMO71wQJJZrsAmvnkJKRGZDxyN2 ssh-operator-boblangley"
   - handle: iradesa
     name: Katelyn Langley
-    github_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP9nkCXpPlHezYlqOZckn3bS8C+msfFpokJrJKZN0+2i"
+    github_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL9kRloIUhdc73ASY22snIUPvZBVe9NORSkuPiNt9k5f ssh-operator-iradesa"
