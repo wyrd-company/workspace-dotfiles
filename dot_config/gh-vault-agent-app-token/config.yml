@@ -8,11 +8,14 @@ apps:
     app_id: 5551515
     transit_key: gh-app-wyrd-automation
   wyrd-claude[bot]:
-    app_id: 
+    app_id: 5573846
     transit_key: gh-app-wyrd-claude
   wyrd-codex[bot]:
-    app_id: 
+    app_id: 5573885
     transit_key: gh-app-wyrd-codex
   wyrd-pi[bot]:
-    app_id: 
+    app_id: 5573912
     transit_key: gh-app-wyrd-pi
+  wyrd-grok[bot]:
+    app_id: 5573930
+    transit_key: gh-app-wyrd-grok

@@ -54,7 +54,7 @@ path "transit/sign/gh-app-wyrd-automation" {
 }
 ```
 
-Each agent App in the config (`wyrd-claude[bot]`, `wyrd-codex[bot]`, `wyrd-pi[bot]`) needs the same grant on its own `transit/sign/<transit_key>` for agent sessions to mint tokens.
+Each agent App in the config (`wyrd-claude[bot]`, `wyrd-codex[bot]`, `wyrd-pi[bot]`, `wyrd-grok[bot]`) needs the same grant on its own `transit/sign/<transit_key>` for agent sessions to mint tokens.
 
 ## ntfy
 
