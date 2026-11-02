@@ -9,7 +9,7 @@ install -d -m 0700 "$HOME/.ssh"
 {{ range .operators }}
 ln -sfn git-as "$HOME/.local/bin/git-{{ .handle }}"
 printf '%s\n' {{ .github_pubkey | quote }} > "$HOME/.ssh/github_{{ .handle }}.pub"
-chmod 0644 "$HOME/.ssh/github_{{ .handle }}.pub"
+chmod 0600 "$HOME/.ssh/github_{{ .handle }}.pub"
 cat > "$HOME/.config/git/operators/{{ .handle }}" <<'OPERATOR'
 OP_NAME={{ .name | quote }}
 OP_PUBKEY="$HOME/.ssh/github_{{ .handle }}.pub"
