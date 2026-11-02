@@ -6,7 +6,7 @@
 operators:
   - handle: boblangley
     name: Bob Langley
-    github_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDPlOSi6iftp6TgGG3w6WDOZco7HVfab9/cgO98+2i0e GitHub"
+    github_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM+dlxMMudB7lYe1kLMO71wQJJZrsAmvnkJKRGZDxyN2 ssh-operator-boblangley"
   - handle: iradesa
     name: Katelyn Langley
     github_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP9nkCXpPlHezYlqOZckn3bS8C+msfFpokJrJKZN0+2i"
