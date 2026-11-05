@@ -1,9 +1,9 @@
 #!/bin/sh
 # git-as <handle> <git args...>: run git as a named operator.
 # Invoked through the per-operator symlinks `git-<handle>`, so `git boblangley push` works as a git subcommand.
-# Identity comes from ~/.config/git/operators/<handle> (rendered by chezmoi). The email is chosen by the
-# GitHub owner of the `origin` remote. The SSH key is selected by its .pub; the private key must be in the
-# forwarded ssh-agent.
+# It only names the operator: the git shim (~/.local/bin/git) applies the identity from
+# ~/.config/git/operators/<handle>, and inside a T3 thread checks it against the thread's registration
+# (`git operator`). Agents in a registered thread use plain git; this is the path for human terminals.
 set -e
 
 self=$(basename "$0")
@@ -13,20 +13,7 @@ case "$self" in
   *)      echo "git-as: unexpected invocation name '$self'" >&2; exit 2 ;;
 esac
 
-conf="$HOME/.config/git/operators/$handle"
-[ -r "$conf" ] || { echo "git-as: unknown operator '$handle' (no $conf)" >&2; exit 2; }
-# shellcheck disable=SC1090
-. "$conf"   # sets OP_NAME, OP_PUBKEY, OP_EMAIL_DEFAULT, OP_EMAIL_<owner> (owner upper-cased, dashes -> _)
-
-remote=$(git remote get-url origin 2>/dev/null || true)
-owner=$(printf '%s' "$remote" | sed -nE 's#^(git@github\.com:|ssh://git@github\.com/|https://github\.com/)([^/]+)/.*$#\2#p')
-owner_var=OP_EMAIL_$(printf '%s' "$owner" | tr 'a-z-' 'A-Z_')
-eval "email=\${$owner_var:-}"
-[ -n "$email" ] || email=$OP_EMAIL_DEFAULT
+[ -r "$HOME/.config/git/operators/$handle" ] || { echo "git-as: unknown operator '$handle'" >&2; exit 2; }
 
 GIT_OPERATOR=$handle; export GIT_OPERATOR
-exec git \
-  -c user.name="$OP_NAME" \
-  -c user.email="$email" \
-  -c core.sshCommand="ssh -i $OP_PUBKEY -o IdentitiesOnly=yes" \
-  "$@"
+exec "$HOME/.local/bin/git" "$@"
