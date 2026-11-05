@@ -1,0 +1,35 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /*
+  Codex writes ~/.codex/config.toml itself: hook trust, plugins, the model picked in the TUI,
+  /statusline changes. So chezmoi does not own the file. It sets only the keys below, and only
+  when one is missing or differs; otherwise the file passes through unchanged, byte for byte.
+  The model is left to the user. System-wide settings (the Xolotl provider, the plugin marketplace,
+  the git-operator hook) are in /etc/codex, rendered by workspace-ansible.
+*/ -}}
+{{- $want := list
+  (list "notice" "hide_full_access_warning" true)
+  (list "notice" "hide_rate_limit_model_nudge" true)
+  (list "tui" "status_line" (list "model-with-reasoning" "current-dir" "context-window-size" "context-used" "used-tokens" "five-hour-limit" "weekly-limit" "codex-version" "thread-title" "task-progress"))
+  (list "tui" "status_line_use_colors" true)
+  (list "tui" "screen_reader_detection_done" true)
+-}}
+{{- $config := dict -}}
+{{- if trim .chezmoi.stdin -}}
+{{-   $config = fromToml .chezmoi.stdin -}}
+{{- end -}}
+{{- $changed := false -}}
+{{- range $want -}}
+{{-   $section := index . 0 -}}
+{{-   $key := index . 1 -}}
+{{-   $value := index . 2 -}}
+{{-   $current := dig $section $key "\x00unset" $config -}}
+{{-   if ne (toJson $current) (toJson $value) -}}
+{{-     $config = setValueAtPath (printf "%s.%s" $section $key) $value $config -}}
+{{-     $changed = true -}}
+{{-   end -}}
+{{- end -}}
+{{- if $changed -}}
+{{    toToml $config }}
+{{- else -}}
+{{    .chezmoi.stdin }}
+{{- end -}}
