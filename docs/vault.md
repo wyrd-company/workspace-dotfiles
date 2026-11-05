@@ -74,3 +74,57 @@ path "kv/data/workspace/ntfy" {
   capabilities = ["read"]
 }
 ```
+
+## Pushover
+
+`pushover` reads `kv/workspace/pushover` at runtime using `bao kv get` through
+the Wyrwood socket in `BAO_ADDR`. The KV v2 secret has two string fields:
+
+- `user_key`: the destination Pushover user or group key
+- `app_token`: the application API token used for workspace notifications
+
+This follows the shared workspace notification convention used by ntfy. The
+secret is in the `wyrwood` namespace; the container uses the namespace-relative
+path. One read per invocation keeps the credentials at the same KV version and
+applies credential rotation to the next notification. Envconsul's process
+supervision is unnecessary for this one-shot command. The script requires
+`bao`, `jq`, and `curl`.
+
+### Provisioning
+
+In Wyrwood, open **OpenBao UI** and sign in. Confirm the namespace is `wyrwood`,
+open the `kv` secrets engine, and create `workspace/pushover` with the fields
+above. The user key is on the Pushover dashboard; create a Pushover application
+such as **Workspace notifications** to obtain its application API token.
+
+In **Wyrwood → Policies**, edit a policy selected by each workspace binding
+that should send notifications. Add the following grant, preserving the other
+grants, then choose **Save and validate**:
+
+```hcl
+path "kv/data/workspace/pushover" {
+  capabilities = ["read"]
+}
+```
+
+Wyrwood propagates the policy change to its bindings. KV v2 ACL paths include
+`data/`; the `bao kv get` path does not. The container needs no write, list, or
+token-management permissions. A `403` means the bound policy does not grant
+this path; update the Wyrwood policy rather than logging in or supplying a
+token inside the container.
+
+### Usage
+
+```bash
+pushover --title 'Build complete' --message 'All checks passed.'
+```
+
+`--user` and `--token` override the respective fields; supplying both skips the
+OpenBao read. `PUSHOVER_SECRET_PATH` selects another namespace-relative KV path,
+which needs its own read grant. Help and version do not access OpenBao.
+
+Credentials are never written to `~/.pushover/config`, and the old `--config`
+flow is replaced by OpenBao provisioning above. Remove any old local credential
+file after migration. Update this chezmoi-managed script through
+workspace-dotfiles; the upstream `--upgrade` installer would replace the
+Wyrwood integration and is disabled.
