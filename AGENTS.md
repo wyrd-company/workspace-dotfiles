@@ -28,3 +28,11 @@ With no operator, bare `git commit` fails (`user.useConfigOnly`) and bare SSH gi
 The private keys come from the forwarded ssh-agent (wyrwood), which holds every operator's key.
 Automation (workspace-ansible, Dagu, project-template hooks) commits as `wyrd-automation[bot]` through
 `git automation`; it is not for interactive use.
+
+## Harness config the harness also writes
+
+Codex rewrites `~/.codex/config.toml` itself (hook trust, plugins, the model, `/statusline`), so chezmoi never owns
+it. `dot_codex/modify_private_config.toml` is a modify template: it sets only its listed keys (`notice`, `tui`),
+only when one is missing or differs, and otherwise passes the file through unchanged. The model is the user's.
+System-wide Codex and Claude Code settings (the Xolotl provider, the plugin marketplace, the git-operator hook) are
+in `/etc`, rendered by workspace-ansible.
