@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# Based on aaronfagan/pushover-cli v1.2.3; managed by workspace-dotfiles.
+# Credentials are read at runtime through Wyrwood. See docs/vault.md.
+set -euo pipefail
+
+version="1.2.3-workspace"
+secret_path="${PUSHOVER_SECRET_PATH:-kv/workspace/pushover}"
+user_key=""
+app_token=""
+title=""
+message=""
+url=""
+url_title=""
+device=""
+sound=""
+html=""
+monospace=""
+timestamp=""
+priority="0"
+retry="60"
+expire="3600"
+quiet=0
+
+usage() {
+  cat <<EOF_HELP
+Usage: pushover --message 'Notification text' [options]
+
+Credentials default to OpenBao at $secret_path (user_key, app_token).
+bao uses the Wyrwood socket configured by BAO_ADDR; no local login is needed.
+Set PUSHOVER_SECRET_PATH to read another namespace-relative KV path.
+
+Options:
+  --user          Override the Pushover user key.
+  --token         Override the Pushover application API token.
+  --title         Notification title.
+  --message       Notification message (required).
+  --url           Supplementary URL.
+  --url-title     Title for the supplementary URL.
+  --device        Target devices, comma separated (default: all).
+  --sound         Notification sound. See https://pushover.net/api#sounds
+  --html          Set to 1 to enable HTML.
+  --monospace     Set to 1 to enable monospace (cannot combine with HTML).
+  --timestamp     Unix timestamp (default: time received by Pushover).
+  --priority      Message priority (default: 0).
+  --retry         Emergency retry interval in seconds (default: 60).
+  --expire        Emergency expiration in seconds (default: 3600).
+  --version, -v   Print the version.
+  --quiet, -q     Silence output.
+  --help          Show this help.
+
+Example: pushover --title 'Build complete' --message 'All checks passed.'
+EOF_HELP
+}
+
+fail() {
+  if [[ "$quiet" -eq 0 ]]; then
+    printf 'pushover: %s\n' "$*" >&2
+  fi
+  exit 1
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --user|--token|--title|--message|--url|--url-title|--device|--sound|--html|--monospace|--timestamp|--priority|--retry|--expire)
+      [[ $# -ge 2 && "$2" != --* ]] || fail "$1 requires a value."
+      case "$1" in
+        --user) user_key="$2" ;;
+        --token) app_token="$2" ;;
+        --title) title="$2" ;;
+        --message) message="$2" ;;
+        --url) url="$2" ;;
+        --url-title) url_title="$2" ;;
+        --device) device="$2" ;;
+        --sound) sound="$2" ;;
+        --html) html="$2" ;;
+        --monospace) monospace="$2" ;;
+        --timestamp) timestamp="$2" ;;
+        --priority) priority="$2" ;;
+        --retry) retry="$2" ;;
+        --expire) expire="$2" ;;
+      esac
+      shift 2
+      ;;
+    --config)
+      fail "Credentials are managed in OpenBao at $secret_path (user_key, app_token); see docs/vault.md."
+      ;;
+    --upgrade)
+      fail "This script is managed by workspace-dotfiles; update it through chezmoi."
+      ;;
+    --version|-v)
+      printf 'Pushover CLI - v%s (workspace-dotfiles; based on https://github.com/aaronfagan/pushover-cli/)\n' "$version"
+      exit 0
+      ;;
+    --quiet|-q) quiet=1; shift ;;
+    --help) usage; exit 0 ;;
+    *) fail "Invalid argument: $1 (see --help)." ;;
+  esac
+done
+
+[[ -n "$message" ]] || fail "--message is required."
+command -v jq >/dev/null 2>&1 || fail "jq is required."
+command -v curl >/dev/null 2>&1 || fail "curl is required."
+
+read_credentials() {
+  if [[ "$quiet" -eq 1 ]]; then
+    bao kv get -format=json "$secret_path" 2>/dev/null
+  else
+    bao kv get -format=json "$secret_path"
+  fi
+}
+
+if [[ -z "$user_key" || -z "$app_token" ]]; then
+  command -v bao >/dev/null 2>&1 || fail "bao is required to read credentials through Wyrwood."
+  # One read keeps both credentials at the same KV version. Do not cache to disk.
+  credentials=$(read_credentials) \
+    || fail "Cannot read $secret_path through Wyrwood; check the bound policy (see docs/vault.md)."
+  if [[ -z "$user_key" ]]; then
+    user_key=$(jq -er '.data.data.user_key | select(type == "string" and length > 0)' 2>/dev/null <<<"$credentials") \
+      || fail "$secret_path must contain a nonempty user_key string."
+  fi
+  if [[ -z "$app_token" ]]; then
+    app_token=$(jq -er '.data.data.app_token | select(type == "string" and length > 0)' 2>/dev/null <<<"$credentials") \
+      || fail "$secret_path must contain a nonempty app_token string."
+  fi
+  unset credentials
+fi
+
+if [[ "$quiet" -eq 0 ]]; then
+  printf 'Sending notification... '
+fi
+
+curl_args=(--silent --show-error --fail --connect-timeout 10 --max-time 30)
+if [[ "$quiet" -eq 1 ]]; then
+  curl_args=(--silent --fail --connect-timeout 10 --max-time 30)
+fi
+# form-string preserves literal text, including leading @ and < characters.
+if ! response=$(curl "${curl_args[@]}" \
+  --form-string "token=$app_token" \
+  --form-string "user=$user_key" \
+  --form-string "title=$title" \
+  --form-string "message=$message" \
+  --form-string "url=$url" \
+  --form-string "url_title=$url_title" \
+  --form-string "device=$device" \
+  --form-string "sound=$sound" \
+  --form-string "html=$html" \
+  --form-string "monospace=$monospace" \
+  --form-string "timestamp=$timestamp" \
+  --form-string "priority=$priority" \
+  --form-string "retry=$retry" \
+  --form-string "expire=$expire" \
+  https://api.pushover.net/1/messages.json); then
+  fail "Notification request failed."
+fi
+if ! jq -e '.status == 1' >/dev/null 2>&1 <<<"$response"; then
+  fail "Pushover did not accept the notification."
+fi
+if [[ "$quiet" -eq 0 ]]; then
+  printf 'success!\n'
+fi
