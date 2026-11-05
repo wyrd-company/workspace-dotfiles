@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# git shim: first on PATH, in front of the real git. It is the one place that decides whose
+# identity a git command runs under.
+#
+#   1. GIT_OPERATOR set: an explicit identity. `git <handle>` (git-as) sets it to a handle;
+#      Dagu's base config sets it to `automation`. Inside a T3 thread it must match the thread's
+#      registered operator, and `automation` is refused.
+#   2. T3CODE_THREAD_ID set and registered with `git operator set`: that operator.
+#   3. A T3 thread with no registration: commands that need an identity stop with a message telling
+#      the agent to ask the user. Everything else passes through.
+#   4. No thread and no GIT_OPERATOR (a human terminal, workspace-ansible, `git automation`): pass
+#      through unchanged. `user.useConfigOnly` and git-ssh-guard still refuse an anonymous commit or
+#      SSH operation, as before.
+#
+# Identity = user.name, user.email (chosen by the GitHub owner of `origin`) and core.sshCommand
+# selecting the operator's key in the forwarded ssh-agent. See `git operator --help` for the
+# thread registry.
+
+# The real git: the first `git` on PATH that is not this file.
+self_dir=$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+real_git=${WYRD_REAL_GIT:-}
+if [ -z "$real_git" ]; then
+  IFS=: read -r -a path_dirs <<<"$PATH"
+  for d in "${path_dirs[@]}"; do
+    [ -n "$d" ] && [ "$(cd -P -- "$d" 2>/dev/null && pwd)" != "$self_dir" ] || continue
+    if [ -x "$d/git" ] && [ ! -d "$d/git" ]; then real_git="$d/git"; break; fi
+  done
+fi
+[ -n "$real_git" ] || { echo "git shim: no real git found on PATH" >&2; exit 127; }
+
+operators_dir="$HOME/.config/git/operators"
+registry_dir="${XDG_STATE_HOME:-$HOME/.local/state}/git-operators/threads"
+
+# Global options before the subcommand, kept so `remote get-url origin` sees the same -C/--git-dir.
+prefix=()
+args=("$@")
+i=0
+while [ $i -lt ${#args[@]} ]; do
+  a=${args[$i]}
+  case "$a" in
+    -C|-c|--git-dir|--work-tree|--namespace)
+      prefix+=("$a" "${args[$((i + 1))]:-}"); i=$((i + 2)) ;;
+    --*=*|-p|-P|--paginate|--no-pager|--bare|--no-replace-objects|--literal-pathspecs|\
+    --glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--no-optional-locks|--no-lazy-fetch|\
+    --no-advice|--exec-path|--html-path|--man-path|--info-path|--version|-v|--help|-h)
+      prefix+=("$a"); i=$((i + 1)) ;;
+    *) break ;;
+  esac
+done
+sub=${args[$i]:-}
+sub_arg=${args[$((i + 1))]:-}
+
+# Does this invocation write commits, tags or refs as someone, or talk to a remote?
+needs_identity() {
+  case "$sub" in
+    commit|commit-tree|merge|pull|rebase|cherry-pick|revert|am|push|fetch|clone|submodule) return 0 ;;
+    tag) case "$sub_arg" in ''|-l|--list|-v|--verify|-n*|--contains|--no-contains|--points-at|--merged|--no-merged|--sort*|--format*) return 1 ;; esac; return 0 ;;
+    stash) case "$sub_arg" in list|show) return 1 ;; esac; return 0 ;;
+    notes) case "$sub_arg" in ''|list|show) return 1 ;; esac; return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+thread_file() { # the registry file for a thread id; ids may contain `/`, `:` and `%`
+  local id=$1
+  id=${id//%/%25}; id=${id//\//%2F}
+  printf '%s/%s' "$registry_dir" "$id"
+}
+
+registered=""
+if [ -n "${T3CODE_THREAD_ID:-}" ] && [ -r "$(thread_file "$T3CODE_THREAD_ID")" ]; then
+  read -r registered <"$(thread_file "$T3CODE_THREAD_ID")" || true
+fi
+
+known_operators() { ls "$operators_dir" 2>/dev/null | tr '\n' ' '; }
+
+ask_message() {
+  echo "git: no operator is registered for this thread ($T3CODE_THREAD_ID)." >&2
+  echo "     Ask the user which operator they are, then run: git operator set <handle>" >&2
+  echo "     Known operators: $(known_operators)" >&2
+  echo "     A thread started by another agent copies that thread's operator: git operator set --from <thread-id>" >&2
+}
+
+operator=""
+if [ -n "${GIT_OPERATOR:-}" ]; then
+  if [ "$GIT_OPERATOR" = automation ]; then
+    if [ -n "${T3CODE_THREAD_ID:-}" ]; then
+      echo "git: GIT_OPERATOR=automation is refused inside a T3 thread; agent threads commit as a person." >&2
+      exit 1
+    fi
+    unset GIT_OPERATOR  # git-automation runs `git` again; without this the shim would loop
+    exec git-automation "$@"
+  fi
+  if [ -n "${T3CODE_THREAD_ID:-}" ]; then
+    if [ -z "$registered" ]; then ask_message; exit 1; fi
+    if [ "$registered" != "$GIT_OPERATOR" ]; then
+      echo "git: this thread is registered to '$registered', not '$GIT_OPERATOR'." >&2
+      echo "     Use plain git, or if the thread changed hands: git operator set --replace <handle>" >&2
+      exit 1
+    fi
+  fi
+  operator=$GIT_OPERATOR
+elif [ -n "$registered" ]; then
+  operator=$registered
+elif [ -n "${T3CODE_THREAD_ID:-}" ] && needs_identity; then
+  ask_message
+  exit 1
+fi
+
+[ -n "$operator" ] || exec "$real_git" "$@"
+
+conf="$operators_dir/$operator"
+[ -r "$conf" ] || { echo "git: unknown operator '$operator' (no $conf). Known operators: $(known_operators)" >&2; exit 2; }
+# shellcheck disable=SC1090
+. "$conf"   # OP_NAME, OP_PUBKEY, OP_EMAIL_DEFAULT, OP_EMAIL_<OWNER>
+
+remote=$("$real_git" "${prefix[@]}" remote get-url origin 2>/dev/null || true)
+owner=$(printf '%s' "$remote" | sed -nE 's#^(git@github\.com:|ssh://git@github\.com/|https://github\.com/)([^/]+)/.*$#\2#p')
+owner_var=OP_EMAIL_$(printf '%s' "$owner" | tr 'a-z-' 'A-Z_')
+email=${!owner_var:-$OP_EMAIL_DEFAULT}
+
+export GIT_OPERATOR=$operator  # read by git-ssh-guard and by nested git calls (hooks)
+exec "$real_git" \
+  -c user.name="$OP_NAME" \
+  -c user.email="$email" \
+  -c core.sshCommand="ssh -i $OP_PUBKEY -o IdentitiesOnly=yes" \
+  "$@"
