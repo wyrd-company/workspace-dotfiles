@@ -1,11 +1,11 @@
 [user]
 	# No name/email here on purpose: the git shim (~/.local/bin/git) sets both per operator, from
-	# `git <handle> ...` or the T3 thread's registration (`git operator`). useConfigOnly makes a
-	# commit with no operator fail instead of guessing.
+	# `git <handle> ...` or the T3 thread's registration (`git operator`). The shim requires an
+	# operator for commit creation even if another tool adds a global name/email later.
 	useConfigOnly = true
 
 [core]
     excludesfile = /home/vscode/.gitignore_global
-    # Refuses any SSH git operation that has no operator; the git shim overrides this with -c.
+    # Reads use the forwarded agent; SSH pushes require an operator.
     sshCommand = /home/vscode/.local/bin/git-ssh-guard
     editor = nano
