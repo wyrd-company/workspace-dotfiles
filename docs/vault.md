@@ -106,20 +106,6 @@ the fields above. The user key is on the recipient's Pushover dashboard; create
 a Pushover application such as **Workspace notifications** to obtain an
 application API token.
 
-To migrate the original single-account secret:
-
-1. Copy both fields from `workspace/pushover` to
-   `workspace/pushover/boblangley` in the `wyrwood` namespace.
-2. Create `workspace/pushover/iradesa` with Katelyn's credentials when ready.
-   Only provisioned child secrets appear in the supported-recipient list.
-3. Apply the Wyrwood grants below, replacing the old read grant on the parent
-   `kv/data/workspace/pushover` path.
-4. Run `pushover --list-recipients`, then send a test with
-   `pushover --recipient boblangley --message 'Recipient migration test'`.
-5. After confirming delivery, delete the old parent secret in OpenBao. The CLI
-   never falls back to that secret. KV v2 deletion leaves historical versions;
-   use OpenBao's destroy operation if those versions must also be removed.
-
 In **Wyrwood → Policies**, edit a policy selected by each workspace binding
 that should send notifications. Add the following grant, preserving the other
 grants, then choose **Save and validate**:
