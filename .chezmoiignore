@@ -2,6 +2,7 @@
 # Deferred: no grok access yet
 .grok
 docs/**/*.*
+tests/**
 AGENTS.md
 LICENSE
 README.md

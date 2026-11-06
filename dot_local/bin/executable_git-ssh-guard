@@ -1,19 +1,25 @@
 #!/bin/sh
-# Global core.sshCommand. Any git network operation over SSH that ran without an operator lands here
-# and is refused, so no commit or push can go out under an ambiguous identity. The git shim
-# (~/.local/bin/git) overrides it with -c once it knows the operator: `git <handle>`, or the
-# operator registered for the T3 thread (`git operator set`).
-# Replaces a pre-push hook: it needs no core.hooksPath, so repo hooks (lefthook etc.) are untouched,
-# and it also covers fetch/clone/pull of private repos.
+# Global core.sshCommand. Reads use the forwarded agent without selecting an operator.
+# Publishing through receive-pack still requires one; the shim also checks pushes over HTTPS
+# and local transports. No hooks are needed, so repository hooks keep working.
+publishing=false
+for arg do
+  case "$arg" in
+    git-receive-pack|git-receive-pack\ *|*/git-receive-pack\ *|git\ receive-pack\ *) publishing=true ;;
+  esac
+done
+if [ "$publishing" = false ]; then
+  exec ssh "$@"
+fi
 if [ -n "$GIT_OPERATOR" ]; then
   exec ssh "$@"   # unreachable in practice: the shim overrides core.sshCommand with -c
 fi
 ops=$(ls "$HOME/.config/git/operators" 2>/dev/null | tr '\n' ' ')
 if [ -n "$T3CODE_THREAD_ID" ]; then
-  echo "git: direct SSH access is blocked: no operator is registered for this thread ($T3CODE_THREAD_ID)." >&2
+  echo "git: SSH push requires an operator; none is registered for this thread ($T3CODE_THREAD_ID)." >&2
   echo "     Ask the user which operator they are, then run: git operator set <handle>" >&2
 else
-  echo "git: direct SSH access is blocked. Re-run the same git command as an operator: git <handle> <command>" >&2
+  echo "git: SSH push requires an operator. Run: git <handle> push ..." >&2
 fi
 echo "     known operators: ${ops:-none configured}" >&2
 exit 1

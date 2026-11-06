@@ -6,11 +6,8 @@
 #      Dagu's base config sets it to `automation`. Inside a T3 thread it must match the thread's
 #      registered operator, and `automation` is refused.
 #   2. T3CODE_THREAD_ID set and registered with `git operator set`: that operator.
-#   3. A T3 thread with no registration: commands that need an identity stop with a message telling
-#      the agent to ask the user. Everything else passes through.
-#   4. No thread and no GIT_OPERATOR (a human terminal, workspace-ansible, `git automation`): pass
-#      through unchanged. `user.useConfigOnly` and git-ssh-guard still refuse an anonymous commit or
-#      SSH operation, as before.
+#   3. No operator: commit creation and pushes stop, in terminals as well as T3 threads.
+#      Everything else (including fetch, clone and tags) passes through.
 #
 # Identity = user.name, user.email (chosen by the GitHub owner of `origin`) and core.sshCommand
 # selecting the operator's key in the forwarded ssh-agent. See `git operator --help` for the
@@ -38,25 +35,250 @@ i=0
 while [ $i -lt ${#args[@]} ]; do
   a=${args[$i]}
   case "$a" in
-    -C|-c|--git-dir|--work-tree|--namespace)
+    -C|-c|--git-dir|--work-tree|--namespace|--config-env)
       prefix+=("$a" "${args[$((i + 1))]:-}"); i=$((i + 2)) ;;
-    --*=*|-p|-P|--paginate|--no-pager|--bare|--no-replace-objects|--literal-pathspecs|\
+    --*=*|-c?*|-C?*|-p|-P|--paginate|--no-pager|--bare|--no-replace-objects|--literal-pathspecs|\
     --glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--no-optional-locks|--no-lazy-fetch|\
     --no-advice|--exec-path|--html-path|--man-path|--info-path|--version|-v|--help|-h)
       prefix+=("$a"); i=$((i + 1)) ;;
     *) break ;;
   esac
 done
-sub=${args[$i]:-}
-sub_arg=${args[$((i + 1))]:-}
+command_args=("${args[@]:$i}")
+lookup_prefix=("${prefix[@]}")
 
-# Does this invocation write commits, tags or refs as someone, or talk to a remote?
+# Git expands ordinary aliases internally, without invoking this shim again. Split alias words
+# using Git's quote/backslash rules (never eval), and classify the expanded invocation.
+split_alias() {
+  local value=$1 word="" quote="" char started=false j
+  alias_words=()
+  for ((j = 0; j < ${#value}; j++)); do
+    char=${value:j:1}
+    if [ "$char" = '\' ] && [ "$quote" != "'" ]; then
+      j=$((j + 1))
+      [ $j -lt ${#value} ] || return 1
+      word+=${value:j:1}; started=true
+    elif [ -n "$quote" ]; then
+      if [ "$char" = "$quote" ]; then quote=""; else word+=$char; fi
+    else
+      case "$char" in
+        "'"|'"') quote=$char; started=true ;;
+        ' '|$'\t'|$'\n')
+          if $started; then alias_words+=("$word"); word=""; started=false; fi ;;
+        *) word+=$char; started=true ;;
+      esac
+    fi
+  done
+  [ -z "$quote" ] || return 1
+  if $started; then alias_words+=("$word"); fi
+}
+
+# Builtins take precedence over aliases. Leave shell aliases to Git, but restore the shim at
+# the front of PATH inside the shell: Git otherwise prepends its own real git binary.
+builtins=$("$real_git" --list-cmds=builtins)
+seen_aliases=" "
+while [ ${#command_args[@]} -gt 0 ]; do
+  sub=${command_args[0]}
+  case $'\n'"$builtins"$'\n' in *$'\n'"$sub"$'\n'*) break ;; esac
+  # Both the traditional alias.<name> and Git 2.56's alias.<name>.command participate in
+  # config order. Read NUL-terminated records so quotes and newlines remain literal.
+  alias_found=false
+  while IFS= read -r -d '' record; do
+    key=${record%%$'\n'*}
+    if [ "$key" = "alias.$sub" ] || [ "$key" = "alias.$sub.command" ]; then
+      alias_value=${record#*$'\n'}; alias_found=true
+    fi
+  done < <("$real_git" "${lookup_prefix[@]}" config -z --get-regexp '^alias\.' 2>/dev/null)
+  $alias_found || break
+  case "$seen_aliases" in *" $sub "*) echo "git: recursive alias '$sub'" >&2; exit 1 ;; esac
+  seen_aliases+="$sub "
+  if [[ "$alias_value" = '!'* ]]; then
+    shim_path=${self_dir//\'/\'\\\'\'}
+    shell_alias="!PATH='$shim_path':\$PATH; export PATH; ${alias_value:1}"
+    lookup_prefix+=(-c "alias.$sub=$shell_alias" -c "alias.$sub.command=$shell_alias")
+    break
+  fi
+  split_alias "$alias_value" || { echo "git: malformed alias '$sub'" >&2; exit 1; }
+  [ ${#alias_words[@]} -gt 0 ] || { echo "git: empty alias '$sub'" >&2; exit 1; }
+  command_args=("${alias_words[@]}" "${command_args[@]:1}")
+  # Aliases may carry global options, including -c and --config-env. Keep them for nested
+  # alias lookup. Execute the final expansion so an outer alias cannot overwrite the shell
+  # alias's PATH correction or the selected operator's config during Git's own expansion.
+  while [ ${#command_args[@]} -gt 0 ]; do
+    case "${command_args[0]}" in
+      -C|-C?*|--git-dir*|--work-tree*|--namespace*)
+        echo "git: alias '$sub' changes environment variables; use a shell alias instead" >&2; exit 1 ;;
+      -c|--config-env)
+        lookup_prefix+=("${command_args[0]}" "${command_args[1]:-}")
+        command_args=("${command_args[@]:2}") ;;
+      --*=*|-c?*|-C?*|-p|-P|--paginate|--no-pager|--bare|--no-replace-objects)
+        lookup_prefix+=("${command_args[0]}"); command_args=("${command_args[@]:1}") ;;
+      *) break ;;
+    esac
+  done
+done
+prefix=("${lookup_prefix[@]}")
+invocation_args=("${command_args[@]}")
+sub=${command_args[0]:-}
+sub_arg=${command_args[1]:-}
+shim_path=${self_dir//\'/\'\\\'\'}
+submodule_foreach=false
+
+# Git's repository iterators also prepend their own git binary. Re-enter this shim in each
+# repository, preserving shell arguments for foreach and Git arguments for for-each-repo.
+if [ "$sub" = for-each-repo ]; then
+  n=1
+  while [ $n -lt ${#invocation_args[@]} ]; do
+    case "${invocation_args[$n]}" in
+      --config) n=$((n + 2)) ;;
+      --config=*|--keep-going) n=$((n + 1)) ;;
+      --) n=$((n + 1)); break ;;
+      *) break ;;
+    esac
+  done
+  if [ $n -lt ${#invocation_args[@]} ]; then
+    dispatch="!exec '$shim_path/git'"
+    invocation_args=("${invocation_args[@]:0:$n}" --
+      -c "alias.wyrd-operator-dispatch=$dispatch"
+      -c "alias.wyrd-operator-dispatch.command=$dispatch"
+      wyrd-operator-dispatch "${invocation_args[@]:$n}")
+  fi
+elif [ "$sub" = submodule ]; then
+  n=1
+  while [[ "${invocation_args[$n]:-}" = -q || "${invocation_args[$n]:-}" = --quiet ]]; do n=$((n + 1)); done
+  if [ "${invocation_args[$n]:-}" = foreach ]; then
+    submodule_foreach=true
+    n=$((n + 1))
+    while [[ "${invocation_args[$n]:-}" = --recursive || "${invocation_args[$n]:-}" = --quiet || "${invocation_args[$n]:-}" = -q ]]; do n=$((n + 1)); done
+    if [ "${invocation_args[$n]:-}" = -- ]; then n=$((n + 1)); fi
+    if [ $n -lt ${#invocation_args[@]} ]; then
+      invocation_args[$n]="PATH='$shim_path':\$PATH; export PATH; ${invocation_args[$n]}"
+    fi
+  fi
+fi
+
+# Collect options without mistaking their values for flags (e.g. commit -m --dry-run).
+# Short options that take a value consume the rest of their cluster or the following word.
+options=()
+short_values=""
+long_values=""
+short_optional=""
+case "$sub" in
+  commit)
+    short_values=mFcCt; short_optional=Su
+    long_values="message file author date template reuse-message reedit-message trailer fixup squash pathspec-from-file cleanup" ;;
+  commit-tree) short_values=pmF; short_optional=S ;;
+  merge)
+    short_values=mFsX; short_optional=S
+    long_values="message file strategy strategy-option cleanup into-name" ;;
+  pull)
+    short_values=sXjo; short_optional=S
+    long_values="strategy strategy-option jobs server-option upload-pack depth deepen shallow-since shallow-exclude refmap filter" ;;
+  rebase)
+    short_values=CxsX; short_optional=S
+    long_values="onto exec strategy strategy-option whitespace empty" ;;
+  cherry-pick|revert)
+    short_values=mX; short_optional=S
+    long_values="mainline strategy strategy-option cleanup empty" ;;
+  am)
+    short_values=Cp; short_optional=S
+    long_values="directory whitespace exclude include patch-format quoted-cr empty resolvemsg" ;;
+  stash) short_values=m; long_values="message pathspec-from-file" ;;
+  notes) short_values=mFcC; long_values="ref message file reuse-message reedit-message strategy" ;;
+  submodule) short_values=jb; long_values="jobs branch depth reference filter" ;;
+  hash-object) short_values=t; long_values="path" ;;
+  push|send-pack) short_values=o; long_values="repo receive-pack exec push-option recurse-submodules" ;;
+esac
+object_type=blob
+for ((j = 1; j < ${#command_args[@]}; j++)); do
+  arg=${command_args[$j]}
+  case "$arg" in
+    --) break ;;
+    --*=*) options+=("$arg") ;;
+    --*)
+      options+=("$arg")
+      for value_option in $long_values; do
+        if [[ "--$value_option" = "$arg"* ]]; then j=$((j + 1)); break; fi
+      done ;;
+    -?*)
+      cluster=${arg:1}
+      for ((k = 0; k < ${#cluster}; k++)); do
+        flag=${cluster:k:1}
+        options+=("-$flag")
+        if [[ "$short_optional" = *"$flag"* ]]; then break; fi
+        if [[ "$short_values" = *"$flag"* ]]; then
+          value=${cluster:$((k + 1))}
+          if [ -z "$value" ]; then j=$((j + 1)); value=${command_args[$j]:-}; fi
+          if [ "$sub" = hash-object ] && [ "$flag" = t ]; then object_type=$value; fi
+          break
+        fi
+      done ;;
+  esac
+done
+
+has_arg() {
+  local arg
+  for arg in "${options[@]}"; do
+    [ "$arg" != "$1" ] || return 0
+  done
+  return 1
+}
+
+# Git accepts unambiguous long-option abbreviations. Treat any spelling of a mode override
+# conservatively, even if the command would ultimately reject it as ambiguous.
+has_override() {
+  local arg
+  for arg in "${options[@]}"; do
+    [[ "$arg" != --* ]] || [[ "$1" != "${arg%%=*}"* ]] || return 0
+  done
+  return 1
+}
+
+# Require an operator for commands that can author commits or publish refs. Explicit modes
+# that cannot create commits remain available, including recovery from an interrupted operation.
 needs_identity() {
   case "$sub" in
-    commit|commit-tree|merge|pull|rebase|cherry-pick|revert|am|push|fetch|clone|submodule) return 0 ;;
-    tag) case "$sub_arg" in ''|-l|--list|-v|--verify|-n*|--contains|--no-contains|--points-at|--merged|--no-merged|--sort*|--format*) return 1 ;; esac; return 0 ;;
-    stash) case "$sub_arg" in list|show) return 1 ;; esac; return 0 ;;
-    notes) case "$sub_arg" in ''|list|show) return 1 ;; esac; return 0 ;;
+    commit|commit-tree|merge|pull|rebase|cherry-pick|revert|am|push|send-pack|stash|notes|submodule|replace|hash-object)
+      if has_arg -h || has_arg --help; then return 1; fi ;;
+  esac
+  case "$sub" in
+    commit) if has_arg --dry-run && ! has_override --no-dry-run; then return 1; fi; return 0 ;;
+    commit-tree|push|send-pack|fast-import|filter-branch|filter-repo|replay|history|citool|gui) return 0 ;;
+    merge|pull)
+      if has_arg --abort && ! has_override --no-abort; then return 1; fi
+      if has_arg --quit && ! has_override --no-quit; then return 1; fi
+      # pull --no-commit can still rebase when pull.rebase/branch.<name>.rebase is set.
+      if [ "$sub" = merge ] && has_arg --no-commit && ! has_override --commit; then return 1; fi
+      if has_arg --ff-only && ! has_override --ff && ! has_override --no-ff && ! has_override --no-ff-only && ! has_override --rebase && ! has_arg -r; then return 1; fi
+      return 0 ;;
+    rebase|cherry-pick|revert|am)
+      if has_arg --abort && ! has_override --no-abort; then return 1; fi
+      if has_arg --quit && ! has_override --no-quit; then return 1; fi
+      if has_arg --show-current-patch && ! has_override --no-show-current-patch; then return 1; fi
+      if has_arg --edit-todo && ! has_override --no-edit-todo; then return 1; fi
+      if { [ "$sub" = cherry-pick ] || [ "$sub" = revert ]; } && { has_arg -n || has_arg --no-commit; } && ! has_override --commit; then return 1; fi
+      return 0 ;;
+    stash) case "$sub_arg" in list|show|apply|pop|drop|clear|branch|store|import) return 1 ;; esac; return 0 ;;
+    notes)
+      local n=1 notes_command
+      while [ $n -lt ${#command_args[@]} ]; do
+        case "${command_args[$n]}" in
+          --ref) n=$((n + 2)) ;;
+          --ref=*) n=$((n + 1)) ;;
+          *) break ;;
+        esac
+      done
+      notes_command=${command_args[$n]:-}
+      case "$notes_command" in
+        ''|list|show|get-ref) return 1 ;;
+        merge) if has_arg --abort && ! has_override --no-abort; then return 1; fi ;;
+      esac
+      return 0 ;;
+    submodule) if has_override --merge || has_override --rebase; then return 0; fi; return 1 ;;
+    replace) if has_override --edit || has_arg -e || has_override --graft || has_override --convert-graft-file; then return 0; fi; return 1 ;;
+    hash-object)
+      if has_arg -w && [ "$object_type" = commit ]; then return 0; fi
+      return 1 ;;
     *) return 1 ;;
   esac
 }
@@ -75,10 +297,14 @@ fi
 known_operators() { ls "$operators_dir" 2>/dev/null | tr '\n' ' '; }
 
 ask_message() {
-  echo "git: no operator is registered for this thread ($T3CODE_THREAD_ID)." >&2
-  echo "     Ask the user which operator they are, then run: git operator set <handle>" >&2
+  if [ -n "${T3CODE_THREAD_ID:-}" ]; then
+    echo "git: no operator is registered for this thread ($T3CODE_THREAD_ID)." >&2
+    echo "     Ask the user which operator they are, then run: git operator set <handle>" >&2
+    echo "     A thread started by another agent copies that thread's operator: git operator set --from <thread-id>" >&2
+  else
+    echo "git: '$sub' requires an operator. Run: git <handle> $sub ..." >&2
+  fi
   echo "     Known operators: $(known_operators)" >&2
-  echo "     A thread started by another agent copies that thread's operator: git operator set --from <thread-id>" >&2
 }
 
 operator=""
@@ -102,12 +328,19 @@ if [ -n "${GIT_OPERATOR:-}" ]; then
   operator=$GIT_OPERATOR
 elif [ -n "$registered" ]; then
   operator=$registered
-elif [ -n "${T3CODE_THREAD_ID:-}" ] && needs_identity; then
+elif needs_identity; then
   ask_message
   exit 1
 fi
 
-[ -n "$operator" ] || exec "$real_git" "$@"
+if [ -z "$operator" ]; then
+  # Config can select a commit-producing submodule update strategy without a command-line
+  # --merge/--rebase. Prevent an internal update from falling back to the global committer.
+  if [ "$sub" = submodule ] && ! $submodule_foreach; then
+    export GIT_COMMITTER_NAME="" GIT_COMMITTER_EMAIL=""
+  fi
+  exec "$real_git" "${prefix[@]}" "${invocation_args[@]}"
+fi
 
 conf="$operators_dir/$operator"
 [ -r "$conf" ] || { echo "git: unknown operator '$operator' (no $conf). Known operators: $(known_operators)" >&2; exit 2; }
@@ -120,8 +353,15 @@ owner_var=OP_EMAIL_$(printf '%s' "$owner" | tr 'a-z-' 'A-Z_')
 email=${!owner_var:-$OP_EMAIL_DEFAULT}
 
 export GIT_OPERATOR=$operator  # read by git-ssh-guard and by nested git calls (hooks)
+# A stale environment must not replace the selected committer or SSH key. Git preserves the
+# original author for cherry-picks/rebases, and an explicit --author still works.
+export GIT_COMMITTER_NAME="$OP_NAME" GIT_COMMITTER_EMAIL="$email"
+unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_SSH
+pubkey=${OP_PUBKEY//\'/\'\\\'\'}
+export GIT_SSH_COMMAND="ssh -i '$pubkey' -o IdentitiesOnly=yes"
 exec "$real_git" \
+  "${prefix[@]}" \
   -c user.name="$OP_NAME" \
   -c user.email="$email" \
-  -c core.sshCommand="ssh -i $OP_PUBKEY -o IdentitiesOnly=yes" \
-  "$@"
+  -c core.sshCommand="$GIT_SSH_COMMAND" \
+  "${invocation_args[@]}"
