@@ -81,9 +81,6 @@ path "kv/data/workspace/ntfy" {
 at `kv/workspace/pushover/<recipient>` using `bao kv get` through the Wyrwood
 socket in `BAO_ADDR`. Recipient names use operator handles:
 
-- `boblangley`: Bob Langley, at `kv/workspace/pushover/boblangley`
-- `iradesa`: Katelyn Langley, at `kv/workspace/pushover/iradesa`
-
 Each KV v2 secret has two string fields:
 
 - `user_key`: the destination Pushover user or group key
