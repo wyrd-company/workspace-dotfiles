@@ -130,8 +130,8 @@ Wyrwood policy rather than logging in or supplying a token inside the container.
 
 ```bash
 pushover --list-recipients
-pushover --recipient boblangley --title 'Build complete' --message 'All checks passed.'
-pushover --recipient iradesa --message 'The review is ready.'
+pushover --recipient <operator> --title 'Build complete' --message 'All checks passed.'
+pushover --recipient <operator> --message 'The review is ready.'
 ```
 
 Omitting `--recipient` lists the supported recipients and exits with an error,
