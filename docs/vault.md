@@ -77,51 +77,72 @@ path "kv/data/workspace/ntfy" {
 
 ## Pushover
 
-`pushover` reads `kv/workspace/pushover` at runtime using `bao kv get` through
-the Wyrwood socket in `BAO_ADDR`. The KV v2 secret has two string fields:
+`pushover` requires an explicit recipient and reads that recipient's credentials
+at `kv/workspace/pushover/<recipient>` using `bao kv get` through the Wyrwood
+socket in `BAO_ADDR`. Recipient names use operator handles:
+
+Each KV v2 secret has two string fields:
 
 - `user_key`: the destination Pushover user or group key
-- `app_token`: the application API token used for workspace notifications
+- `app_token`: the application API token to use when notifying this recipient
 
-This follows the shared workspace notification convention used by ntfy. The
-secret is in the `wyrwood` namespace; the container uses the namespace-relative
-path. One read per invocation keeps the credentials at the same KV version and
-applies credential rotation to the next notification. Envconsul's process
-supervision is unnecessary for this one-shot command. The script requires
-`bao`, `jq`, and `curl`.
+Secrets are in the `wyrwood` namespace; the container uses namespace-relative
+paths. The CLI discovers supported recipients by listing direct child secrets
+under `kv/workspace/pushover`; names must start with a letter or digit and
+contain only letters, digits, underscores, or hyphens. New recipients need no
+script change. One credential read per notification keeps both fields at the
+same KV version and applies rotation to the next notification. Envconsul's
+process supervision is unnecessary for this one-shot command. The script
+requires `bao`, `jq`, and `curl`.
 
 ### Provisioning
 
 In Wyrwood, open **OpenBao UI** and sign in. Confirm the namespace is `wyrwood`,
-open the `kv` secrets engine, and create `workspace/pushover` with the fields
-above. The user key is on the Pushover dashboard; create a Pushover application
-such as **Workspace notifications** to obtain its application API token.
+open the `kv` secrets engine, and create `workspace/pushover/<recipient>` with
+the fields above. The user key is on the recipient's Pushover dashboard; create
+a Pushover application such as **Workspace notifications** to obtain an
+application API token.
 
 In **Wyrwood → Policies**, edit a policy selected by each workspace binding
 that should send notifications. Add the following grant, preserving the other
 grants, then choose **Save and validate**:
 
 ```hcl
-path "kv/data/workspace/pushover" {
+path "kv/data/workspace/pushover/*" {
   capabilities = ["read"]
+}
+path "kv/metadata/workspace/pushover" {
+  capabilities = ["list"]
 }
 ```
 
 Wyrwood propagates the policy change to its bindings. KV v2 ACL paths include
-`data/`; the `bao kv get` path does not. The container needs no write, list, or
-token-management permissions. A `403` means the bound policy does not grant
-this path; update the Wyrwood policy rather than logging in or supplying a
-token inside the container.
+`data/`; the `bao kv get` path does not. Recipient discovery needs `list` on
+the exact parent metadata path; it does not require reading metadata or listing
+other directories. The container needs no write or token-management permissions.
+A `403` means the bound policy does not grant the requested path; update the
+Wyrwood policy rather than logging in or supplying a token inside the container.
 
 ### Usage
 
 ```bash
-pushover --title 'Build complete' --message 'All checks passed.'
+pushover --list-recipients
+pushover --recipient <operator> --title 'Build complete' --message 'All checks passed.'
+pushover --recipient <operator> --message 'The review is ready.'
 ```
 
+Omitting `--recipient` lists the supported recipients and exits with an error,
+without sending anything. Unsupported recipients also fail with the list. No
+recipient is inferred from the current Git operator or container account.
+`--list-recipients` lists names and exits successfully without sending.
+
 `--user` and `--token` override the respective fields; supplying both skips the
-OpenBao read. `PUSHOVER_SECRET_PATH` selects another namespace-relative KV path,
-which needs its own read grant. Help and version do not access OpenBao.
+credential read, but still requires a supported recipient. `PUSHOVER_SECRET_ROOT`
+selects another namespace-relative directory with the same per-recipient layout
+and corresponding grants. It replaces the old `PUSHOVER_SECRET_PATH` setting;
+there is no single-secret override. Help and version do not access OpenBao.
+`--quiet` suppresses output, including recipient lists, while retaining exit
+status for callers.
 
 Credentials are never written to `~/.pushover/config`, and the old `--config`
 flow is replaced by OpenBao provisioning above. Remove any old local credential
