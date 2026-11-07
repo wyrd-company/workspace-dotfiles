@@ -9,6 +9,7 @@ tap "wyrd-company/tools", trusted: true
 brew "thoughtbot/formulae/complexity"
 brew "charmbracelet/tap/freeze"
 brew "dotenvx"
+brew "envconsul"
 brew "gh"
 brew "gifsicle"
 brew "glow"
