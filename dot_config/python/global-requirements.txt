@@ -1,0 +1,1 @@
+discord-cli-agent==0.13.0

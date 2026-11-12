@@ -1,0 +1,15 @@
+#!/bin/bash
+# dot_config/python/global-requirements.txt hash: {{ include "dot_config/python/global-requirements.txt" | sha256sum }}
+set -e
+
+REQUIREMENTS_FILE="$HOME/.config/python/global-requirements.txt"
+export UV_LINK_MODE=copy
+
+while IFS= read -r tool || [ -n "$tool" ]; do
+    tool=$(echo "$tool" | tr -d '\r' | xargs)
+    
+    [[ -z "$tool" || "$tool" =~ ^# ]] && continue
+    
+    uv tool install --force "$tool"
+    
+done < "$REQUIREMENTS_FILE"
