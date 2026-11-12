@@ -4,6 +4,8 @@ This is the dotfiles I use for each devcontainer workspace account, targeting th
 
 Secrets come from OpenBao through the Wyrwood vault socket; the container holds no token or secret file. See `docs/vault.md`.
 
+The AWS CLI is configured for Cloudflare R2, one profile per bucket, with keys read from OpenBao on each call. See `docs/aws-cli.md`.
+
 ## Git identity (operators)
 
 Devcontainers are shared by several humans, and every commit and push must name the operator who asked for it.

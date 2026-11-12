@@ -149,3 +149,10 @@ flow is replaced by OpenBao provisioning above. Remove any old local credential
 file after migration. Update this chezmoi-managed script through
 workspace-dotfiles; the upstream `--upgrade` installer would replace the
 Wyrwood integration and is disabled.
+
+## Cloudflare R2 (AWS CLI)
+
+The AWS CLI profiles read the Cloudflare account ID at `kv/workspace/r2/account` (when chezmoi applies) and each
+bucket's S3 key at `kv/workspace/r2/buckets/<bucket>` (on every call). Every workspace binding needs `read` on
+`kv/data/workspace/r2/account`; bucket keys are granted per binding. See [aws-cli.md](aws-cli.md) for the
+Cloudflare, OpenBao and Wyrwood steps.

@@ -1,0 +1,17 @@
+{{- /* Cloudflare R2 profiles, one per bucket in .chezmoidata/r2.yml. See docs/aws-cli.md. */ -}}
+{{- $account := (vault "kv/workspace/r2/account").data.data.account_id -}}
+# Managed by workspace-dotfiles (chezmoi); local edits are overwritten. Do not run `aws configure`.
+# Keys are read from OpenBao on each call by aws-bao-credentials; see docs/aws-cli.md.
+
+[services r2]
+s3 =
+  endpoint_url = https://{{ $account }}.r2.cloudflarestorage.com
+{{ range .r2.buckets }}
+[profile {{ .name }}]
+services = r2
+region = auto
+credential_process = {{ $.chezmoi.homeDir }}/.local/bin/aws-bao-credentials kv/workspace/r2/buckets/{{ .name }}
+# R2 does not accept every checksum the AWS CLI sends by default.
+request_checksum_calculation = when_required
+response_checksum_validation = when_required
+{{ end -}}
