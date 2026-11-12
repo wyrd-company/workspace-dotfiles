@@ -1,0 +1,8 @@
+# Cloudflare R2 buckets the AWS CLI is configured for, one profile each (see docs/aws-cli.md).
+# Nothing here is secret. The account ID is in OpenBao at kv/workspace/r2/account, and each bucket's
+# S3 key is at kv/workspace/r2/buckets/<name>.
+r2:
+  buckets:
+    - name: assets-wyrd-foo
+      public_url: https://assets.wyrd.foo   # public: objects are served from this custom domain
+    - name: workspace-archives              # private: no public access
