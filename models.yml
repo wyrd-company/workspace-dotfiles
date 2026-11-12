@@ -1,0 +1,66 @@
+- model: fable-5.2
+  provider: claude
+  description: |
+    Use for only the most difficult design work, but hand off work quickly to other models as difficult decisions are made.
+    Limited weekly usage.
+  pareto:
+    - effort: high
+      usd-cost-per-task: 9.08
+      intelligence-index: 62
+      time-per-task-min: 16.7
+    - effort: medium
+      usd-cost-per-task: 3.80
+      intelligence-index: 56
+      time-per-task-min: 7.8
+- model: gpt-6-astra
+  provider: codex
+  description:  Good second opinion for difficult decisions/design work.
+  pareto:
+    - effort: high
+      usd-cost-per-task: 3.24
+      intelligence-index: 55
+      time-per-task-min: 9.7
+- model: opus-5.5
+  provider: claude
+  description: |
+    Primary decision maker.
+    Good design skills.
+  pareto:
+    - effort: xhigh
+      usd-cost-per-task: 6.05
+      intelligence-index: 57
+      time-per-task-min: 15.9
+- model: gpt-6.1-sol
+  provider: codex
+  description: |
+    Detailed reviewer.
+    Will follow instructions dillegently, but is less likely to guess intent.
+    UI design skills are weak.
+    Great capability for cost.
+  pareto:
+    - effort: xhigh
+      usd-cost-per-task: 0.76
+      intelligence-index: 52
+      time-per-task-min: 9.3
+    - effort: high
+      usd-cost-per-task: 0.59
+      intelligence-index: 50
+      time-per-task-min: 6.9
+    - effort: medium
+      usd-cost-per-task: 0.36
+      intelligence-index: 46
+      time-per-task-min: 3.9
+- model: gpt-6.1-terra
+  provider: codex
+  description: |
+    A workhorse LLM.
+    Can be handed off independent subtasks with some direction and ability to escalate.
+  pareto:
+    - effort: high
+      usd-cost-per-task: 0.26
+      intelligence-index: 42
+      time-per-task-min: 4.1
+    - effort: medium
+      usd-cost-per-task: 0.17
+      intelligence-index: 38
+      time-per-task-min: 2.7
