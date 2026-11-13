@@ -1,0 +1,28 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /* Claude writes this file too. Own only the Xolotl connection's required keys. */ -}}
+{{- $workspace := include "/etc/workspace/config.yml" | fromYaml -}}
+{{- if not $workspace.xolotl_url -}}
+{{-   fail "xolotl_url is required in /etc/workspace/config.yml" -}}
+{{- end -}}
+{{- $want := dict
+  "type" "http"
+  "url" (printf "%s/mcp" $workspace.xolotl_url)
+  "headersHelper" "/usr/local/bin/xolotl-mcp-headers"
+-}}
+{{- $config := dict -}}
+{{- if trim .chezmoi.stdin -}}
+{{-   $config = fromJson .chezmoi.stdin -}}
+{{- end -}}
+{{- $changed := false -}}
+{{- range $key, $value := $want -}}
+{{-   $current := dig "mcpServers" "xolotl" $key "\x00unset" $config -}}
+{{-   if ne (toJson $current) (toJson $value) -}}
+{{-     $config = setValueAtPath (printf "mcpServers.xolotl.%s" $key) $value $config -}}
+{{-     $changed = true -}}
+{{-   end -}}
+{{- end -}}
+{{- if $changed -}}
+{{    toPrettyJson $config }}
+{{- else -}}
+{{    .chezmoi.stdin }}
+{{- end -}}

@@ -48,8 +48,16 @@ the Git tests use isolated homes, local repositories and fake SSH, without real 
 
 ## Harness config the harness also writes
 
+Root-owned configuration belongs to workspace-ansible; user-owned configuration belongs here.
+Prefer `/etc` for common settings when the application supports it; otherwise use dotfiles.
+
 Codex rewrites `~/.codex/config.toml` itself (hook trust, plugins, the model, `/statusline`), so chezmoi never owns
 it. `dot_codex/modify_private_config.toml` is a modify template: it sets only its listed keys (`notice`, `tui`),
 only when one is missing or differs, and otherwise passes the file through unchanged. The model is the user's.
 System-wide Codex and Claude Code settings (the Xolotl provider, the plugin marketplace, the git-operator hook) are
 in `/etc`, rendered by workspace-ansible.
+
+Claude Code's `~/.claude.json` is also written by the client. `modify_private_dot_claude.json`
+sets only the required Xolotl MCP connection keys, preserving other settings and passing an
+unchanged file through byte for byte. It reads the URL from `/etc/workspace/config.yml`;
+the shared header helper is installed by workspace-ansible.
