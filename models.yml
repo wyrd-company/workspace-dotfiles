@@ -1,35 +1,107 @@
+# The models approved for agents, at each effort they are used at.
+#
+# Efforts: the band between a model's lowest and highest. Most models are not
+# worth it at `low`, and do worse at `max` (or whatever their highest is).
+#
+# Each effort entry:
+#   pareto:      true when no other entry here is both cheaper and smarter.
+#   complexity:  the task complexities it executes.
+#   risk:        the task risks it reviews.
+#   usd-cost-per-task, intelligence-index, time-per-task-min: Artificial
+#                Analysis Intelligence Index v5.0.1, from the effort's own model
+#                page (artificialanalysis.ai/models/<model>-<effort>).
+#
+# Dispatch is a lookup, not a judgment: from the entries that list the task's
+# `complexity` (or, for a review, its `risk`), take the cheapest. For a review,
+# take the cheapest whose provider differs from the executor's, or the cheapest
+# when none does. A task's `model` and `effort`, when set, override the lookup.
+# Change the policy here, not on tasks.
+
 - model: fable-5.2
   provider: claude
   description: |
     Use for only the most difficult design work, but hand off work quickly to other models as difficult decisions are made.
     Limited weekly usage.
-  pareto:
+  efforts:
+    - effort: xhigh
+      pareto: false
+      usd-cost-per-task: 14.83
+      intelligence-index: 62
+      time-per-task-min: 27.5
     - effort: high
+      pareto: true
       usd-cost-per-task: 9.08
       intelligence-index: 62
       time-per-task-min: 16.7
     - effort: medium
+      pareto: true
       usd-cost-per-task: 3.80
       intelligence-index: 56
-      time-per-task-min: 7.8
+      time-per-task-min: 8.0
 - model: gpt-6-astra
   provider: codex
   description:  Good second opinion for difficult decisions/design work.
-  pareto:
+  efforts:
+    - effort: xhigh
+      pareto: false
+      usd-cost-per-task: 3.66
+      intelligence-index: 55
+      time-per-task-min: 12.1
     - effort: high
+      pareto: true
       usd-cost-per-task: 3.24
       intelligence-index: 55
       time-per-task-min: 9.7
+    - effort: medium
+      pareto: false
+      usd-cost-per-task: 2.73
+      intelligence-index: 52
+      time-per-task-min: 7.5
 - model: opus-5.5
   provider: claude
   description: |
     Primary decision maker.
     Good design skills.
-  pareto:
+  efforts:
     - effort: xhigh
+      pareto: true
+      complexity: [high]
+      risk: [high]
       usd-cost-per-task: 6.05
       intelligence-index: 57
-      time-per-task-min: 15.9
+      time-per-task-min: 16.0
+    - effort: high
+      pareto: false
+      risk: [normal]
+      usd-cost-per-task: 3.46
+      intelligence-index: 52
+      time-per-task-min: 9.5
+    - effort: medium
+      pareto: false
+      usd-cost-per-task: 2.45
+      intelligence-index: 48
+      time-per-task-min: 7.1
+- model: sonnet-5.5
+  provider: claude
+  description: |
+    Good code reviewer.
+  efforts:
+    - effort: xhigh
+      pareto: false
+      usd-cost-per-task: 4.09
+      intelligence-index: 50
+      time-per-task-min: 14.6
+    - effort: high
+      pareto: false
+      risk: [low]
+      usd-cost-per-task: 1.64
+      intelligence-index: 42
+      time-per-task-min: 6.8
+    - effort: medium
+      pareto: false
+      usd-cost-per-task: 0.78
+      intelligence-index: 31
+      time-per-task-min: 4.0
 - model: gpt-6.1-sol
   provider: codex
   description: |
@@ -37,30 +109,56 @@
     Will follow instructions dillegently, but is less likely to guess intent.
     UI design skills are weak.
     Great capability for cost.
-  pareto:
+  efforts:
     - effort: xhigh
+      pareto: true
+      risk: [high]
       usd-cost-per-task: 0.76
       intelligence-index: 52
-      time-per-task-min: 9.3
+      time-per-task-min: 10.5
     - effort: high
+      pareto: true
+      complexity: [normal]
+      risk: [normal]
       usd-cost-per-task: 0.59
       intelligence-index: 50
-      time-per-task-min: 6.9
+      time-per-task-min: 7.7
     - effort: medium
+      pareto: true
       usd-cost-per-task: 0.36
       intelligence-index: 46
-      time-per-task-min: 3.9
+      time-per-task-min: 4.5
 - model: gpt-6.1-terra
   provider: codex
   description: |
     A workhorse LLM.
     Can be handed off independent subtasks with some direction and ability to escalate.
-  pareto:
+  efforts:
+    - effort: xhigh
+      pareto: false
+      usd-cost-per-task: 0.40
+      intelligence-index: 45
+      time-per-task-min: 6.6
     - effort: high
+      pareto: true
+      risk: [low]
       usd-cost-per-task: 0.26
       intelligence-index: 42
-      time-per-task-min: 4.1
+      time-per-task-min: 4.3
     - effort: medium
+      pareto: true
+      complexity: [low]
       usd-cost-per-task: 0.17
       intelligence-index: 38
-      time-per-task-min: 2.7
+      time-per-task-min: 2.9
+- model: grok-4.7
+  provider: grok
+  description: |
+    A judge, or an alternative reviewer.
+    Kept for councils, as a third provider, for now.
+  efforts:
+    - effort: high
+      pareto: false
+      usd-cost-per-task: 6.18
+      intelligence-index: 35
+      time-per-task-min: 21.9
