@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# boat with its API key from OpenBao, read through the Wyrwood socket (BAO_ADDR) on each call.
+# Managed by workspace-dotfiles; see docs/boat.md.
+#
+# The key is at kv/workspace/boat, field api_key. It is passed to boat as BOAT_API_KEY and never
+# written to disk, so a rotation applies to the next call. A BOAT_API_KEY already set is used as is.
+# The binary is the one .chezmoidata/install-scripts.yml installs, ~/.ascii/bin/boat.
+set -euo pipefail
+
+path=kv/workspace/boat
+field=api_key
+real="$HOME/.ascii/bin/boat"
+
+fail() {
+  printf 'boat wrapper: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ -x "$real" ]] || fail "$real is not installed; run chezmoi apply (see docs/install-scripts.md)."
+
+if [[ -z "${BOAT_API_KEY:-}" ]]; then
+  command -v bao >/dev/null 2>&1 || fail "bao is required to read the API key through Wyrwood."
+  BOAT_API_KEY=$(bao kv get -field="$field" "$path") \
+    || fail "Cannot read $field from $path through Wyrwood; check that the bound policy grants it (see docs/boat.md)."
+  [[ -n "$BOAT_API_KEY" ]] || fail "$path has an empty $field."
+  export BOAT_API_KEY
+fi
+
+exec "$real" "$@"
