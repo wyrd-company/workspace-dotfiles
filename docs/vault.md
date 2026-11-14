@@ -156,3 +156,8 @@ The AWS CLI profiles read the Cloudflare account ID at `kv/workspace/r2/account`
 bucket's S3 key at `kv/workspace/r2/buckets/<bucket>` (on every call). Every workspace binding needs `read` on
 `kv/data/workspace/r2/account`; bucket keys are granted per binding. See [aws-cli.md](aws-cli.md) for the
 Cloudflare, OpenBao and Wyrwood steps.
+
+## Boat
+
+The `boat` wrapper reads the Boat API key at `kv/workspace/boat`, field `api_key`, on every call. See
+[boat.md](boat.md) for creating the key, storing it, and the policy grant.
