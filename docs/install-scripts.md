@@ -41,8 +41,9 @@ Brewfile, npm and pip scripts. For each entry it:
 
 1. Skips the entry, without a download, when `bin` exists and the entry is unchanged since its last successful
    install. The state is one file per tool under `~/.local/state/install-scripts/`, holding a hash of the entry.
-2. Otherwise downloads the script to a temporary directory, checks `sha256` when one is set, and runs it there with
-   `env` and `args`, with no input so a prompt cannot wait for an answer.
+2. Otherwise downloads the script to a temporary directory over HTTPS, refusing a redirect to any other protocol,
+   checks `sha256` when one is set, and runs it there with `env` and `args`, with no input so a prompt cannot wait
+   for an answer.
 3. Records the install only when the script exits 0 and `bin` then exists.
 
 Changing any field of an entry (for example a pinned version in `env`) reinstalls that tool; deleting its binary

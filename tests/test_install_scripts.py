@@ -1,12 +1,16 @@
 """Run the rendered install-scripts runner against a fake curl and local install scripts, without network access."""
 
+import functools
 import hashlib
+import http.server
 import json
 import os
 from pathlib import Path
 import shutil
+import ssl
 import subprocess
 import tempfile
+import threading
 import unittest
 
 
@@ -191,6 +195,63 @@ class InstallScriptsTests(unittest.TestCase):
         self.assertIn("url must start with https://", result.stderr)
         self.assertIn("invalid name '../escape'", result.stderr)
         self.assertIn("nobin: bin is required", result.stderr)
+
+    @unittest.skipUnless(shutil.which("openssl"), "openssl is not installed")
+    def test_https_redirect_to_http_is_not_followed_or_run(self):
+        """Real curl against loopback servers: https://.../redirect.sh answers 302 to http://.../install.sh."""
+        (self.bin / "curl").unlink()
+        http_hits = []
+
+        class Plain(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, *args):
+                http_hits.append(self.path)
+
+        class Secure(http.server.SimpleHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == "/redirect.sh":
+                    self.send_response(302)
+                    self.send_header("Location", f"http://127.0.0.1:{plain.server_port}/install.sh")
+                    self.end_headers()
+                else:
+                    super().do_GET()
+
+            def log_message(self, *args):
+                pass
+
+        cert = Path(self.temp.name) / "cert.pem"
+        key = Path(self.temp.name) / "key.pem"
+        subprocess.run(
+            ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-subj", "/CN=127.0.0.1",
+             "-addext", "subjectAltName=IP:127.0.0.1", "-keyout", str(key), "-out", str(cert)],
+            check=True, capture_output=True, timeout=30,
+        )
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(cert, key)
+        plain = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Plain, directory=str(self.serve)))
+        secure = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Secure, directory=str(self.serve)))
+        secure.socket = context.wrap_socket(secure.socket, server_side=True)
+        for server in (plain, secure):
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            self.addCleanup(server.server_close)
+            self.addCleanup(server.shutdown)
+
+        base = f"https://127.0.0.1:{secure.server_port}"
+        for key_ in [k for k in self.env if k.lower().endswith("_proxy")]:
+            del self.env[key_]
+        self.env.update(CURL_CA_BUNDLE=str(cert), SSL_CERT_FILE=str(cert))
+        self.render([
+            self.entry(name="downgraded", url=f"{base}/redirect.sh", bin="~/.local/bin/downgraded",
+                       args=["~/.local/bin/downgraded"]),
+            self.entry(url=f"{base}/install.sh"),
+        ])
+        result, _ = self.run_script()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("failed: downgraded", result.stderr)
+        self.assertIn("downgraded: could not download", result.stderr)
+        self.assertEqual(http_hits, [], "curl must not request the http:// redirect target")
+        self.assertFalse((self.home / ".local/bin/downgraded").exists())
+        self.assertTrue(os.access(self.home / ".local/bin/demo", os.X_OK), "later entries still install")
+        self.assertEqual(self.runs(), 1)
 
 
 if __name__ == "__main__":
