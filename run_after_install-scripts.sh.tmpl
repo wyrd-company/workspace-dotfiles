@@ -66,8 +66,9 @@ install_script() {
     echo "install-scripts: $name: $url exited with an error" >&2
   elif ! has_bin "$bin"; then
     echo "install-scripts: $name: $url finished but $bin is not there; check bin, or the script's install dir" >&2
+  elif ! { mkdir -p "$state" && printf '%s\n' "$stamp" > "$state/$name"; }; then
+    echo "install-scripts: $name: installed, but could not record it in $state; the next apply reinstalls it" >&2
   else
-    mkdir -p "$state" && printf '%s\n' "$stamp" > "$state/$name"
     rm -rf "$dir"
     return
   fi

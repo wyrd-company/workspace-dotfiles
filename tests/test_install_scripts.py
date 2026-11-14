@@ -196,6 +196,16 @@ class InstallScriptsTests(unittest.TestCase):
         self.assertIn("invalid name '../escape'", result.stderr)
         self.assertIn("nobin: bin is required", result.stderr)
 
+    def test_failed_state_write_fails_the_entry_and_others_continue(self):
+        self.render([self.entry(), self.entry(name="other", bin="~/.local/bin/other", args=["~/.local/bin/other"])])
+        (self.home / ".local/state/install-scripts/demo").mkdir(parents=True)
+        result, _ = self.run_script()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("failed: demo", result.stderr)
+        self.assertIn("demo: installed, but could not record it", result.stderr)
+        self.assertTrue((self.home / ".local/state/install-scripts/other").is_file())
+        self.assertEqual(self.runs(), 2)
+
     @unittest.skipUnless(shutil.which("openssl"), "openssl is not installed")
     def test_https_redirect_to_http_is_not_followed_or_run(self):
         """Real curl against loopback servers: https://.../redirect.sh answers 302 to http://.../install.sh."""

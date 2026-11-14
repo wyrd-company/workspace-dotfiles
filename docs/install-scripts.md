@@ -44,7 +44,8 @@ Brewfile, npm and pip scripts. For each entry it:
 2. Otherwise downloads the script to a temporary directory over HTTPS, refusing a redirect to any other protocol,
    checks `sha256` when one is set, and runs it there with `env` and `args`, with no input so a prompt cannot wait
    for an answer.
-3. Records the install only when the script exits 0 and `bin` then exists.
+3. Records the install only when the script exits 0 and `bin` then exists. A failure to write the record fails the
+   entry, since the next apply would install it again.
 
 Changing any field of an entry (for example a pinned version in `env`) reinstalls that tool; deleting its binary
 does too. Upgrades of unchanged entries are left to the tool's own updater, such as `uv self update`. Removing an
