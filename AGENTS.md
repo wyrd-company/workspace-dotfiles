@@ -10,6 +10,9 @@ Tools come from `dot_Brewfile`, `dot_npm-packages` and `dot_config/python/global
 `run_onchange_` script. A tool whose only install is the vendor's `install.sh` goes in `.chezmoidata/install-scripts.yml`.
 See `docs/install-scripts.md`.
 
+chezmoi keeps one block in `~/.bashrc` and `~/.zshrc` that sources `~/.config/shell/rc.d/*.sh`; shell integration for a
+tool goes there. The rest of those files is left alone. See `docs/shell.md`.
+
 ## Git identity (operators)
 
 Devcontainers are shared by several humans, and every commit and push must name the operator who asked for it.
