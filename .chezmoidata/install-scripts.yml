@@ -1,0 +1,3 @@
+# Tools whose only supported install is the vendor's install.sh, the `curl ... | sh` kind.
+# Fields, and how run_after_install-scripts.sh.tmpl runs them: docs/install-scripts.md.
+install_scripts: []
