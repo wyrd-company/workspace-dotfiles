@@ -113,6 +113,13 @@ class RcModifyTests(unittest.TestCase):
                     self.assertEqual(after, content)
                     self.assertIn("unbalanced", err)
 
+    def test_duplicate_blocks_become_one_and_stay_one(self):
+        after, _ = self.modify("zshrc", OURS + "alias keep=1\n" + OURS + "alias also=1\n")
+        self.assertEqual(after, OURS + "alias keep=1\nalias also=1\n")
+        self.assertEqual(self.modify("zshrc", after)[0], after)
+        stripped, _ = self.modify("profile", "a\n" + OURS + "b\n")
+        self.assertEqual(stripped, "a\nb\n", "the block belongs only in ~/.bashrc and ~/.zshrc")
+
     def test_unbalanced_markers_leave_the_file_unchanged(self):
         for content in (STOCK + VENDOR_PATH.rsplit("# ASCII", 1)[0] + "alias keep=1\n",
                         STOCK + "# END workspace-dotfiles shell\n",
