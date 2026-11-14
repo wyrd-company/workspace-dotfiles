@@ -6,6 +6,10 @@ Secrets come from OpenBao through the Wyrwood vault socket; the container holds 
 
 The AWS CLI is configured for Cloudflare R2, one profile per bucket, with keys read from OpenBao on each call. See `docs/aws-cli.md`.
 
+Tools come from `dot_Brewfile`, `dot_npm-packages` and `dot_config/python/global-requirements.txt`, each installed by a
+`run_onchange_` script. A tool whose only install is the vendor's `install.sh` goes in `.chezmoidata/install-scripts.yml`.
+See `docs/install-scripts.md`.
+
 ## Git identity (operators)
 
 Devcontainers are shared by several humans, and every commit and push must name the operator who asked for it.

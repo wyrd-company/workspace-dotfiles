@@ -1,0 +1,85 @@
+#!/bin/bash
+# Runs on every apply: installs each tool in .chezmoidata/install-scripts.yml with its vendor's install.sh.
+# A tool whose binary exists and whose entry is unchanged since it installed is skipped without a download.
+# Changing the entry (url, args, env, sha256) or losing the binary reinstalls it. See docs/install-scripts.md.
+set -uo pipefail
+
+state="${XDG_STATE_HOME:-$HOME/.local/state}/install-scripts"
+failed=()
+
+# The binary is a command on PATH, or a path starting with ~/.
+has_bin() {
+  case $1 in
+    "~/"*) [ -x "$HOME/${1#"~/"}" ] ;;
+    */*) [ -x "$1" ] ;;
+    *) hash -r; command -v "$1" >/dev/null ;;
+  esac
+}
+
+# install_script NAME URL BIN SHELL SHA256 STAMP [NAME=VALUE ...] -- [ARG ...]
+install_script() {
+  local name=$1 url=$2 bin=$3 shell=$4 sha256=$5 stamp=$6
+  shift 6
+  local env=()
+  while [ "$1" != -- ]; do
+    case $1 in
+      *=~/*) env+=("${1%%=*}=$HOME/${1#*=~/}") ;;  # NAME=~/dir: the script gets an absolute path
+      *) env+=("$1") ;;
+    esac
+    shift
+  done
+  shift
+  local args=()
+  for arg in "$@"; do
+    case $arg in
+      "~/"*) args+=("$HOME/${arg#"~/"}") ;;  # ~/dir: the script gets an absolute path
+      *) args+=("$arg") ;;
+    esac
+  done
+
+  case $name in
+    "" | *[!A-Za-z0-9._-]*) echo "install-scripts: invalid name '$name'" >&2; failed+=("${name:-?}"); return ;;
+  esac
+  case $url in
+    https://*) ;;
+    *) echo "install-scripts: $name: url must start with https://, got '$url'" >&2; failed+=("$name"); return ;;
+  esac
+  if [ -z "$bin" ]; then
+    echo "install-scripts: $name: bin is required" >&2; failed+=("$name"); return
+  fi
+
+  if has_bin "$bin" && [ "$(cat "$state/$name" 2>/dev/null)" = "$stamp" ]; then
+    return
+  fi
+
+  echo "install-scripts: installing $name from $url" >&2
+  local dir
+  dir=$(mktemp -d) || { failed+=("$name"); return; }
+  # The script is saved before it runs, so a dropped connection cannot run half of it.
+  if ! curl -fsSL --retry 3 -o "$dir/install.sh" "$url"; then
+    echo "install-scripts: $name: could not download $url" >&2
+  elif [ -n "$sha256" ] && ! printf '%s  %s\n' "$sha256" "$dir/install.sh" | sha256sum --check --status; then
+    echo "install-scripts: $name: $url does not match sha256 $sha256; not running it" >&2
+  # No terminal: a script that prompts reads end of input instead of waiting forever.
+  elif ! (cd "$dir" && env ${env[@]+"${env[@]}"} "$shell" "$dir/install.sh" ${args[@]+"${args[@]}"} </dev/null); then
+    echo "install-scripts: $name: $url exited with an error" >&2
+  elif ! has_bin "$bin"; then
+    echo "install-scripts: $name: $url finished but $bin is not there; check bin, or the script's install dir" >&2
+  else
+    mkdir -p "$state" && printf '%s\n' "$stamp" > "$state/$name"
+    rm -rf "$dir"
+    return
+  fi
+  rm -rf "$dir"
+  failed+=("$name")
+}
+
+{{ range .install_scripts -}}
+install_script {{ get . "name" | toString | shellQuote }} {{ get . "url" | toString | shellQuote }} {{ get . "bin" | toString | shellQuote }} {{ get . "shell" | default "sh" | toString | shellQuote }} {{ get . "sha256" | toString | shellQuote }} {{ . | toJson | sha256sum }}
+{{- range $key, $value := get . "env" | default dict }} {{ printf "%s=%v" $key $value | shellQuote }}{{ end }} --
+{{- range get . "args" | default list }} {{ toString . | shellQuote }}{{ end }}
+{{ end }}
+if [ ${#failed[@]} -gt 0 ]; then
+  echo "install-scripts: failed: ${failed[*]}" >&2
+  exit 1
+fi
