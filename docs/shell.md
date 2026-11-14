@@ -16,7 +16,8 @@ byte when there is nothing to change. This is the same approach as the Codex and
 
 - In all four it removes the blocks boat's install script writes (see [boat.md](boat.md)).
 
-A file with an unbalanced marker is left unchanged, with a warning, rather than losing everything after the marker.
+A file with an unbalanced marker, or with one kind of block crossing or inside the other, is left unchanged with a
+warning, rather than losing everything after the marker.
 
 ## Adding shell integration
 

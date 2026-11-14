@@ -100,9 +100,23 @@ class RcModifyTests(unittest.TestCase):
         dev = VENDOR_PATH.replace("END boat", "END boat-dev").replace("START boat", "START boat-dev")
         self.assertEqual(self.modify("profile", STOCK + dev)[0], STOCK + dev)
 
+    def test_crossed_or_nested_markers_leave_the_file_unchanged(self):
+        begin, end = "# BEGIN workspace-dotfiles shell\n", "# END workspace-dotfiles shell\n"
+        start, stop = "# ASCII BOAT SHELL INTEGRATION START boat\n", "# ASCII BOAT SHELL INTEGRATION END boat\n"
+        for layout in (begin + start + end + stop, start + begin + stop + end,
+                       begin + start + stop + end, start + begin + end + stop,
+                       begin + start + stop, start + begin + end):
+            content = STOCK + layout + "alias keep=1\n"
+            with self.subTest(layout=layout):
+                for name in ("bashrc", "profile"):
+                    after, err = self.modify(name, content)
+                    self.assertEqual(after, content)
+                    self.assertIn("unbalanced", err)
+
     def test_unbalanced_markers_leave_the_file_unchanged(self):
         for content in (STOCK + VENDOR_PATH.rsplit("# ASCII", 1)[0] + "alias keep=1\n",
-                        STOCK + "# END workspace-dotfiles shell\n"):
+                        STOCK + "# END workspace-dotfiles shell\n",
+                        STOCK + "# ASCII BOAT SHELL INTEGRATION END boat\n"):
             with self.subTest(content=content):
                 after, err = self.modify("bashrc", content)
                 self.assertEqual(after, content)

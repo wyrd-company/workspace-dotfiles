@@ -16,13 +16,15 @@ dir=$(mktemp -d)
 trap 'rm -rf "$dir"' EXIT
 cat > "$dir/in"
 
+# One state for both kinds of block: a marker of either kind inside the other kind's block (crossed or
+# nested) is unbalanced too, since the removal below would then run past the end and drop what follows.
 # awk runs END after an exit in a rule, and END's exit sets the status: so `bad`, not `exit 1`.
 if ! awk '
-  $0 == "# ASCII BOAT SHELL INTEGRATION START boat" { if (v) bad = 1; v = 1 }
-  $0 == "# ASCII BOAT SHELL INTEGRATION END boat" { if (!v) bad = 1; v = 0 }
-  $0 == "# BEGIN workspace-dotfiles shell" { if (o) bad = 1; o = 1 }
-  $0 == "# END workspace-dotfiles shell" { if (!o) bad = 1; o = 0 }
-  END { exit (bad || v || o) }
+  $0 == "# ASCII BOAT SHELL INTEGRATION START boat" { if (in_block) bad = 1; in_block = "vendor"; next }
+  $0 == "# BEGIN workspace-dotfiles shell" { if (in_block) bad = 1; in_block = "ours"; next }
+  $0 == "# ASCII BOAT SHELL INTEGRATION END boat" { if (in_block != "vendor") bad = 1; in_block = ""; next }
+  $0 == "# END workspace-dotfiles shell" { if (in_block != "ours") bad = 1; in_block = ""; next }
+  END { exit (bad || in_block != "") }
 ' "$dir/in"; then
   echo "shell-rc: unbalanced boat or workspace-dotfiles block markers; leaving the file unchanged" >&2
   cat "$dir/in"
