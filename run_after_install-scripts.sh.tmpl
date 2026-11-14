@@ -56,7 +56,8 @@ install_script() {
   local dir
   dir=$(mktemp -d) || { failed+=("$name"); return; }
   # The script is saved before it runs, so a dropped connection cannot run half of it.
-  if ! curl -fsSL --retry 3 -o "$dir/install.sh" "$url"; then
+  # HTTPS only, redirects included: a redirect to http:// would run bytes anyone on the path could change.
+  if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 -o "$dir/install.sh" "$url"; then
     echo "install-scripts: $name: could not download $url" >&2
   elif [ -n "$sha256" ] && ! printf '%s  %s\n' "$sha256" "$dir/install.sh" | sha256sum --check --status; then
     echo "install-scripts: $name: $url does not match sha256 $sha256; not running it" >&2
