@@ -9,9 +9,9 @@ The vendor's script, and why the entry sets what it does:
   expressions replace both calls with `:`. The vendor suggests one, `s|"\$INSTALL_DIR/\$MODE" onboard|:|`, which
   leaves `: < /dev/tty` behind; with no terminal (Dagu, Ansible) opening `/dev/tty` fails and so does the script.
 - With `$SHELL` set to bash or zsh it writes a PATH block and a `boat()` shell function into `~/.bashrc` or
-  `~/.zshrc` (and `~/.zshenv` or `~/.profile`). The function calls `~/.ascii/bin/boat` directly, which would skip
-  the API key wrapper below. `SHELL: /bin/sh` makes the script skip the rc files. The function's one extra, `boat
-  new` exporting `BOAT_CURRENT_ID` into the calling shell, is lost; pass sandbox IDs explicitly.
+  `~/.zshrc` (and `~/.zshenv` or `~/.profile`). The PATH block puts the real binary first, and the function calls it
+  directly: both skip the API key wrapper. `SHELL: /bin/sh` makes the script leave the rc files alone, and the rc
+  modify scripts remove blocks an earlier install left (see [shell.md](shell.md)).
 - It links `~/.local/bin/boat` to the binary only when nothing else is there. chezmoi writes the wrapper first, so
   the link is never made. It also links `/usr/local/bin/boat` when that is writable by the user, which it is not in
   the workspaces.
@@ -25,6 +25,15 @@ The vendor's script, and why the entry sets what it does:
 and runs the real binary with it as `BOAT_API_KEY`, so the key is never in a config file and a rotation applies to
 the next call. A `BOAT_API_KEY` already in the environment is used as is. The wrapper is a file on `PATH`, not a
 shell alias, so agents, Dagu and scripts get the key too, not just interactive shells.
+
+## Current sandbox
+
+In interactive bash and zsh, `boat` is a shell function, `dot_config/shell/rc.d/boat.sh`, that runs the wrapper.
+After `boat new`, `start` or `fork` it exports the new sandbox as `BOAT_CURRENT_ID`, and after `boat prompt` the
+conversation as `BOAT_CURRENT_CONVO`, so later commands in that shell can omit them. This is what the vendor's rc
+function does. boat writes the IDs to the files named by `BOAT_CURRENT_ID_FILE` and `BOAT_CURRENT_CONVO_FILE`. A
+function is needed because a program cannot set variables in the shell that ran it. Scripts and agents, which read
+no rc file, run the wrapper and pass IDs explicitly.
 
 Create a key with `boat api-key create` (signed in, or on the dashboard); the secret is shown once. Store it on the
 OpenBao server, in the `wyrwood` namespace (see [vault.md](vault.md)):

@@ -1,6 +1,8 @@
 #!/bin/bash
 # chezmoi modify script for a shell startup file the user and installers also write. It owns two things
 # and passes everything else through: see docs/shell.md.
+#  - Removes the blocks boat's install script adds (`# ASCII BOAT SHELL INTEGRATION START boat` to `END boat`).
+#    They put ~/.ascii/bin first on PATH and define a boat() that calls the binary past the API key wrapper.
 #  - With add_block, keeps one block that sources ~/.config/shell/rc.sh, appended when missing.
 # An unterminated block is left alone: removing to the end of the file would delete the user's settings.
 set -euo pipefail
@@ -16,16 +18,22 @@ cat > "$dir/in"
 
 # awk runs END after an exit in a rule, and END's exit sets the status: so `bad`, not `exit 1`.
 if ! awk '
+  $0 == "# ASCII BOAT SHELL INTEGRATION START boat" { if (v) bad = 1; v = 1 }
+  $0 == "# ASCII BOAT SHELL INTEGRATION END boat" { if (!v) bad = 1; v = 0 }
   $0 == "# BEGIN workspace-dotfiles shell" { if (o) bad = 1; o = 1 }
   $0 == "# END workspace-dotfiles shell" { if (!o) bad = 1; o = 0 }
-  END { exit (bad || o) }
+  END { exit (bad || v || o) }
 ' "$dir/in"; then
-  echo "shell-rc: unbalanced workspace-dotfiles block markers; leaving the file unchanged" >&2
+  echo "shell-rc: unbalanced boat or workspace-dotfiles block markers; leaving the file unchanged" >&2
   cat "$dir/in"
   exit 0
 fi
 
 awk -v add="$add_block" '
+  $0 == "# ASCII BOAT SHELL INTEGRATION START boat" { vendor = 1; next }
+  vendor { if ($0 == "# ASCII BOAT SHELL INTEGRATION END boat") { vendor = 0; eat = 1 } next }
+  eat && $0 == "" { eat = 0; next }
+  { eat = 0 }
   $0 == "# BEGIN workspace-dotfiles shell" { ours = 1; if (add) { print ENVIRON["BLOCK"]; placed = 1 } next }
   ours { if ($0 == "# END workspace-dotfiles shell") ours = 0; next }
   { print; last = $0 }
