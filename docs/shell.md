@@ -1,18 +1,20 @@
 # Shell startup files
 
-`~/.bashrc` and `~/.zshrc` come from the image and are also written by the user and by
+`~/.bashrc`, `~/.zshrc`, `~/.profile` and `~/.zshenv` come from the image and are also written by the user and by
 installers, so chezmoi does not own them. Each has a `modify_dot_<name>.tmpl` script, rendered from
 `.chezmoitemplates/shell-rc-modify.sh`. It changes only what it owns and passes everything else through, byte for
 byte when there is nothing to change. This is the same approach as the Codex and Claude Code config files.
 
-It keeps one block, appended when missing:
+- In `~/.bashrc` and `~/.zshrc` it keeps one block, appended when missing:
 
-```sh
-# BEGIN workspace-dotfiles shell
-# Managed by chezmoi (workspace-dotfiles): sources ~/.config/shell/rc.d/*.sh. See docs/shell.md.
-if [ -r "$HOME/.config/shell/rc.sh" ]; then . "$HOME/.config/shell/rc.sh"; fi
-# END workspace-dotfiles shell
-```
+  ```sh
+  # BEGIN workspace-dotfiles shell
+  # Managed by chezmoi (workspace-dotfiles): sources ~/.config/shell/rc.d/*.sh. See docs/shell.md.
+  if [ -r "$HOME/.config/shell/rc.sh" ]; then . "$HOME/.config/shell/rc.sh"; fi
+  # END workspace-dotfiles shell
+  ```
+
+- In all four it removes the blocks boat's install script writes (see [boat.md](boat.md)).
 
 A file with an unbalanced marker is left unchanged, with a warning, rather than losing everything after the marker.
 
