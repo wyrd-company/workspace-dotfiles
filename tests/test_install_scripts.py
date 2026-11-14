@@ -104,11 +104,12 @@ class InstallScriptsTests(unittest.TestCase):
         return {"name": "demo", "url": "https://example.test/install.sh", "bin": "~/.local/bin/demo",
                 "args": ["~/.local/bin/demo"], **fields}
 
-    def test_repository_data_renders_and_installs_nothing(self):
+    def test_repository_data_renders_one_call_per_entry(self):
         self.render()
-        result, calls = self.run_script()
+        result = subprocess.run(["bash", "-n", str(self.script)], text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(calls, [])
+        calls = [line.split()[1] for line in self.script.read_text().splitlines() if line.startswith("install_script ")]
+        self.assertEqual(calls, ["boat"])
 
     def test_installs_with_args_env_and_no_terminal_then_skips(self):
         self.render([self.entry(args=["~/.local/bin/demo", "it's $HOME"], env={"DEMO_DIR": "~/opt", "N": 3})])

@@ -1,3 +1,12 @@
 # Tools whose only supported install is the vendor's install.sh, the `curl ... | sh` kind.
 # Fields, and how run_after_install-scripts.sh.tmpl runs them: docs/install-scripts.md.
-install_scripts: []
+install_scripts:
+  # Why each setting: docs/boat.md.
+  - name: boat
+    url: https://boat.dev/install
+    bin: ~/.ascii/bin/boat
+    env:
+      SHELL: /bin/sh
+    sed:
+      - 's|"\$INSTALL_DIR/\$MODE" onboard < /dev/tty|:|'
+      - 's|"\$INSTALL_DIR/\$MODE" onboard|:|'
