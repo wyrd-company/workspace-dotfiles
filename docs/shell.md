@@ -15,6 +15,8 @@ byte when there is nothing to change. This is the same approach as the Codex and
   ```
 
 - In all four it removes the blocks boat's install script writes (see [boat.md](boat.md)).
+- Extra copies of the block are dropped (the first is kept in place), and the block is removed from `~/.profile`
+  and `~/.zshenv`, so `rc.d` is sourced once, by interactive shells.
 
 A file with an unbalanced marker, or with one kind of block crossing or inside the other, is left unchanged with a
 warning, rather than losing everything after the marker.

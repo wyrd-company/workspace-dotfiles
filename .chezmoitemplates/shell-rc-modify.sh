@@ -36,7 +36,8 @@ awk -v add="$add_block" '
   vendor { if ($0 == "# ASCII BOAT SHELL INTEGRATION END boat") { vendor = 0; eat = 1 } next }
   eat && $0 == "" { eat = 0; next }
   { eat = 0 }
-  $0 == "# BEGIN workspace-dotfiles shell" { ours = 1; if (add) { print ENVIRON["BLOCK"]; placed = 1 } next }
+  # The first block is rewritten in place; later copies are dropped, so rc.d is sourced once.
+  $0 == "# BEGIN workspace-dotfiles shell" { ours = 1; if (add && !placed) { print ENVIRON["BLOCK"]; placed = 1 } next }
   ours { if ($0 == "# END workspace-dotfiles shell") ours = 0; next }
   { print; last = $0 }
   END { if (add && !placed) { if (NR && last != "") print ""; print ENVIRON["BLOCK"] } }
