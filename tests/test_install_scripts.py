@@ -62,6 +62,8 @@ class InstallScriptsTests(unittest.TestCase):
         (self.serve / "install.sh").write_text(INSTALLER)
         (self.serve / "fail.sh").write_text("#!/bin/sh\necho broken >&2\nexit 3\n")
         (self.serve / "noop.sh").write_text("#!/bin/sh\nexit 0\n")
+        # Like vendor scripts that end in an interactive setup step the apply must not run.
+        (self.serve / "onboard.sh").write_text(INSTALLER + 'echo onboarded >> "$HOME/onboarded"\n')
         self.calls = root / "calls"
         self.data = root / "data.json"
         self.script = root / "rendered.sh"
@@ -163,6 +165,33 @@ class InstallScriptsTests(unittest.TestCase):
         result, _ = self.run_script()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.runs(), 1)
+
+    def test_sed_edits_the_script_before_it_runs(self):
+        sha = hashlib.sha256((self.serve / "onboard.sh").read_bytes()).hexdigest()
+        self.render([self.entry(
+            url="https://example.test/onboard.sh",
+            sha256=sha,  # of the download, before the edits
+            sed=['s|echo onboarded|echo skipped|', 's|"$HOME/onboarded"|"$HOME/skipped"|'],
+        )])
+        result, _ = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.runs(), 1)
+        self.assertFalse((self.home / "onboarded").exists())
+        self.assertEqual((self.home / "skipped").read_text(), "skipped\n", "expressions apply in order")
+
+    def test_sed_that_matches_nothing_or_fails_does_not_run_the_script(self):
+        for expression, message in (
+            ("s|no such line|:|", "sed expression no longer matches the script; not running it: s|no such line|:|"),
+            ("s|unterminated", "sed expression failed: s|unterminated"),
+        ):
+            with self.subTest(expression=expression):
+                self.render([self.entry(url="https://example.test/onboard.sh", sed=["s|echo onboarded|:|", expression])])
+                result, _ = self.run_script()
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(message, result.stderr)
+                self.assertIn("failed: demo", result.stderr)
+                self.assertEqual(self.runs(), 0)
+                self.assertFalse((self.home / ".local/state/install-scripts/demo").exists())
 
     def test_failures_do_not_stop_other_entries_and_are_retried(self):
         self.render([

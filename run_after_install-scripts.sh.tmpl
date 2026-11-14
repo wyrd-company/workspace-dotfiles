@@ -16,24 +16,39 @@ has_bin() {
   esac
 }
 
-# install_script NAME URL BIN SHELL SHA256 STAMP [NAME=VALUE ...] -- [ARG ...]
+# Applies each of the entry's sed expressions to the downloaded script, after the sha256 check.
+# An expression that changes nothing fails the entry: the script changed, and running it anyway
+# would bring back what the expression was there to remove.
+edit_script() {
+  local name=$1 file=$2 expression
+  for expression in ${entry_sed[@]+"${entry_sed[@]}"}; do
+    if ! sed -e "$expression" "$file" > "$file.edited"; then
+      echo "install-scripts: $name: sed expression failed: $expression" >&2
+      return 1
+    elif cmp -s "$file" "$file.edited"; then
+      echo "install-scripts: $name: sed expression no longer matches the script; not running it: $expression" >&2
+      return 1
+    fi
+    mv "$file.edited" "$file"
+  done
+}
+
+# The entry's lists are set just before each call: entry_env (NAME=VALUE), entry_sed and entry_args.
+# install_script NAME URL BIN SHELL SHA256 STAMP
 install_script() {
   local name=$1 url=$2 bin=$3 shell=$4 sha256=$5 stamp=$6
-  shift 6
-  local env=()
-  while [ "$1" != -- ]; do
-    case $1 in
-      *=~/*) env+=("${1%%=*}=$HOME/${1#*=~/}") ;;  # NAME=~/dir: the script gets an absolute path
-      *) env+=("$1") ;;
+  local env=() args=() item
+  # A leading ~/ in an env value or an argument becomes an absolute path under $HOME.
+  for item in ${entry_env[@]+"${entry_env[@]}"}; do
+    case $item in
+      *=~/*) env+=("${item%%=*}=$HOME/${item#*=~/}") ;;
+      *) env+=("$item") ;;
     esac
-    shift
   done
-  shift
-  local args=()
-  for arg in "$@"; do
-    case $arg in
-      "~/"*) args+=("$HOME/${arg#"~/"}") ;;  # ~/dir: the script gets an absolute path
-      *) args+=("$arg") ;;
+  for item in ${entry_args[@]+"${entry_args[@]}"}; do
+    case $item in
+      "~/"*) args+=("$HOME/${item#"~/"}") ;;
+      *) args+=("$item") ;;
     esac
   done
 
@@ -61,6 +76,8 @@ install_script() {
     echo "install-scripts: $name: could not download $url" >&2
   elif [ -n "$sha256" ] && ! printf '%s  %s\n' "$sha256" "$dir/install.sh" | sha256sum --check --status; then
     echo "install-scripts: $name: $url does not match sha256 $sha256; not running it" >&2
+  elif ! edit_script "$name" "$dir/install.sh"; then
+    :
   # No terminal: a script that prompts reads end of input instead of waiting forever.
   elif ! (cd "$dir" && env ${env[@]+"${env[@]}"} "$shell" "$dir/install.sh" ${args[@]+"${args[@]}"} </dev/null); then
     echo "install-scripts: $name: $url exited with an error" >&2
@@ -77,10 +94,12 @@ install_script() {
 }
 
 {{ range .install_scripts -}}
+entry_env=({{ range $key, $value := get . "env" | default dict }} {{ printf "%s=%v" $key $value | shellQuote }}{{ end }} )
+entry_sed=({{ range get . "sed" | default list }} {{ toString . | shellQuote }}{{ end }} )
+entry_args=({{ range get . "args" | default list }} {{ toString . | shellQuote }}{{ end }} )
 install_script {{ get . "name" | toString | shellQuote }} {{ get . "url" | toString | shellQuote }} {{ get . "bin" | toString | shellQuote }} {{ get . "shell" | default "sh" | toString | shellQuote }} {{ get . "sha256" | toString | shellQuote }} {{ . | toJson | sha256sum }}
-{{- range $key, $value := get . "env" | default dict }} {{ printf "%s=%v" $key $value | shellQuote }}{{ end }} --
-{{- range get . "args" | default list }} {{ toString . | shellQuote }}{{ end }}
-{{ end }}
+
+{{ end -}}
 if [ ${#failed[@]} -gt 0 ]; then
   echo "install-scripts: failed: ${failed[*]}" >&2
   exit 1
