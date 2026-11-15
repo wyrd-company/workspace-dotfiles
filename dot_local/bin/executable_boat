@@ -26,4 +26,56 @@ if [[ -z "${BOAT_API_KEY:-}" ]]; then
   export BOAT_API_KEY
 fi
 
-exec "$real" "$@"
+# Sandboxes go in this thread's resource ledger (see docs/ledger.md): `new` and `fork` acquire the sandbox they
+# create, and `delete` releases it from whichever ledger holds it. A ledger failure warns and never fails boat.
+ledger_db=${LEDGER_DB:-${T3CODE_THREAD_ID:-}}
+case ${1-} in
+  new | fork | delete) command -v ledger >/dev/null 2>&1 || exec "$real" "$@" ;;
+  *) exec "$real" "$@" ;;
+esac
+
+ledger_warn() { printf 'boat wrapper: ledger: %s\n' "$*" >&2; }
+
+org=${BOAT_ORG:-} target="" skip=false
+for arg in "${@:2}"; do
+  if [[ "$skip" == org ]]; then org=$arg; skip=false; continue; fi
+  if [[ "$skip" == true ]]; then skip=false; continue; fi
+  case "$arg" in
+    --org) skip=org ;;
+    --org=*) org=${arg#--org=} ;;
+    --api-url | -e | --env | --from | --count | --host) skip=true ;; # options that take a value
+    -*) ;;
+    *) [[ -n "$target" ]] || target=$arg ;;
+  esac
+done
+
+if [[ "$1" == delete ]]; then
+  rc=0
+  "$real" "$@" || rc=$?
+  [[ -z "$target" || "$target" == current ]] && target=${BOAT_CURRENT_ID:-}
+  if [[ $rc -eq 0 && -n "$target" && "$target" != self ]]; then
+    ledger release --missing-ok --all-dbs "boat:sandbox/$target" || ledger_warn "could not release boat:sandbox/$target"
+  fi
+  exit "$rc"
+fi
+
+# new | fork: boat writes the new sandbox ID to BOAT_CURRENT_ID_FILE. Use the caller's file (the rc function's)
+# when there is one, so it still sees the ID.
+id_file=${BOAT_CURRENT_ID_FILE:-}
+own_file=false
+if [[ -z "$id_file" ]]; then id_file=$(mktemp); own_file=true; fi
+rc=0
+BOAT_CURRENT_ID_FILE=$id_file "$real" "$@" || rc=$?
+if [[ $rc -eq 0 ]]; then
+  if [[ -z "$ledger_db" ]]; then
+    ledger_warn "no LEDGER_DB or T3CODE_THREAD_ID; record the sandbox yourself (docs/ledger.md)"
+  else
+    for id in $(cat "$id_file" 2>/dev/null); do
+      ledger --db "$ledger_db" acquire "boat:sandbox/$id" --replace \
+        --cleanup "boat delete --yes${org:+ --org $(printf %q "$org")} $(printf %q "$id")" \
+        || ledger_warn "could not record boat:sandbox/$id in $ledger_db"
+    done
+  fi
+fi
+[[ "$own_file" == true ]] && rm -f "$id_file"
+exit "$rc"

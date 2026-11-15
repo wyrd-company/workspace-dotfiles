@@ -35,6 +35,20 @@ function does. boat writes the IDs to the files named by `BOAT_CURRENT_ID_FILE` 
 function is needed because a program cannot set variables in the shell that ran it. Scripts and agents, which read
 no rc file, run the wrapper and pass IDs explicitly.
 
+## Ledger
+
+The wrapper keeps the thread's [ledger](ledger.md) (`LEDGER_DB`, else `T3CODE_THREAD_ID`) up to date:
+
+- After a successful `boat new` or `boat fork`, it acquires `boat:sandbox/<id>` with the cleanup
+  `boat delete --yes [--org <org>] <id>`. It reads the ID from `BOAT_CURRENT_ID_FILE`, using the rc function's file
+  when one is set, so the shell's current sandbox still works. With `--count`, it records the IDs boat writes there.
+- After a successful `boat delete`, it releases the sandbox from whichever ledger holds it. An ID of `current`, or
+  no ID, means `BOAT_CURRENT_ID`.
+- Outside a thread, with no `LEDGER_DB`, it warns and records nothing. A ledger failure only warns: boat's exit
+  status is always its own.
+
+`boat run` creates its sandbox and deletes it again, so it is not recorded.
+
 Create a key with `boat api-key create` (signed in, or on the dashboard); the secret is shown once. Store it on the
 OpenBao server, in the `wyrwood` namespace (see [vault.md](vault.md)):
 

@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# ledger: record what a thread or task acquires (sandboxes, worktrees, branches, ...) and how to clean it up.
+# Managed by workspace-dotfiles; see docs/ledger.md.
+#
+# Each ledger is a Skate database, named after the T3 thread ($T3CODE_THREAD_ID) or a task (task-<id>). A key
+# names the resource as kind:name (boat:sandbox/sbx_1, worktree:/workspace/x); its value is a JSON record with
+# the cleanup command or the instructions to remove it. Skate's store allows one writer at a time, so every
+# access goes through this script, which holds a lock around it.
+set -euo pipefail
+
+store=${SKATE_STORE:-$HOME/.local/share/charm/kv}
+lock_file="$store.lock"
+
+usage() {
+  cat <<'EOF'
+usage: ledger [--db DB] acquire KEY (--cleanup CMD | --instructions TEXT)... [--verify CMD] [--replace]
+       ledger [--db DB] release [--missing-ok] [--all-dbs] KEY...
+       ledger [--db DB] handoff --to DB KEY...
+       ledger [--db DB] list [--all] [--json]
+       ledger [--db DB] show KEY
+       ledger [--db DB] clean [--dry-run] [KEY...]
+       ledger dbs
+
+KEY is kind:name, e.g. boat:sandbox/sbx_123 or worktree:/workspace/repo/worktrees/x; no whitespace or @.
+Skate ignores case in keys: Foo:x and foo:x are the same resource.
+DB defaults to $LEDGER_DB, then $T3CODE_THREAD_ID. A task's ledger is task-<id>.
+
+acquire   record a resource. --cleanup is a shell command that removes it and is safe to run twice;
+          --instructions is for what a person or agent must do by hand. --verify is a command that
+          exits 0 while the resource exists and 1 once it is gone (any other status: unknown).
+release   forget a resource that is gone. Does not clean it up. --all-dbs releases it wherever it is.
+handoff   move resources to another ledger, the one now responsible for them.
+clean     for each resource (all, or the KEYs given): release it if --verify says it is gone, else run
+          --cleanup and release it if that succeeds. Resources with only instructions are printed and kept.
+          Exits 1 if anything is left.
+EOF
+}
+
+fail() { printf 'ledger: %s\n' "$*" >&2; exit 2; }
+note() { printf 'ledger: %s\n' "$*" >&2; }
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+check_db() {
+  [[ -n "$1" ]] || fail "no ledger: pass --db, or set LEDGER_DB or T3CODE_THREAD_ID."
+  [[ "$1" =~ ^[A-Za-z0-9._:-]+$ ]] || fail "bad ledger name '$1': use letters, digits and . _ : -"
+}
+
+check_key() {
+  [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*:[^[:space:]@]+$ ]] || fail "bad key '$1': use kind:name, no whitespace or @"
+}
+
+with_lock() { # run "$@" holding the store lock
+  mkdir -p "$(dirname "$lock_file")"
+  (
+    flock -w 60 9 || fail "timed out waiting for $lock_file"
+    "$@"
+  ) 9>"$lock_file"
+}
+
+# Skate, retried: something outside this script may hold the store for a moment.
+sk() {
+  local try out
+  for try in 1 2 3 4 5; do
+    if out=$(skate "$@" 2>&1); then
+      [[ -z "$out" ]] || printf '%s\n' "$out"
+      return 0
+    fi
+    [[ "$out" == *"Key not found"* ]] && return 1
+    sleep 0.2
+  done
+  fail "skate $* failed: $out"
+}
+
+db_exists() { skate list-dbs 2>/dev/null | grep -qxF "@$1"; }
+
+get_value() { db_exists "$1" && sk get "$2@$1"; } # prints the record, or returns 1
+
+all_dbs() { skate list-dbs 2>/dev/null | sed -n 's/^@//p'; }
+
+entries() { # db -> key<TAB>value lines
+  db_exists "$1" || return 0
+  sk list "@$1"
+}
+
+# --- commands --------------------------------------------------------------------------------------------------
+
+do_acquire() { # db key replace record
+  local db=$1 key=$2 replace=$3 record=$4 other
+  if get_value "$db" "$key" >/dev/null && [[ "$replace" != true ]]; then
+    fail "$key is already in ledger $db; pass --replace to overwrite it"
+  fi
+  for other in $(all_dbs); do
+    [[ "$other" == "$db" ]] && continue
+    if sk get "$key@$other" >/dev/null 2>&1; then note "warning: $key is also in ledger $other"; fi
+  done
+  sk set "$key@$db" "$record" >/dev/null
+}
+
+cmd_acquire() {
+  local key="" cleanup="" instructions="" verify="" replace=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --cleanup) cleanup=${2-}; shift ;;
+      --instructions) instructions=${2-}; shift ;;
+      --verify) verify=${2-}; shift ;;
+      --replace) replace=true ;;
+      -*) fail "acquire: unknown option $1" ;;
+      *) [[ -z "$key" ]] || fail "acquire takes one KEY"; key=$1 ;;
+    esac
+    shift
+  done
+  [[ -n "$key" ]] || fail "acquire needs a KEY"
+  check_key "$key"
+  [[ -n "$cleanup$instructions" ]] || fail "acquire needs --cleanup or --instructions: how is $key removed?"
+  local record
+  record=$(jq -cn --arg kind "$(tr "[:upper:]" "[:lower:]" <<<"${key%%:*}")" --arg cleanup "$cleanup" --arg instructions "$instructions" \
+    --arg verify "$verify" --arg at "$(now)" --arg by "${T3CODE_THREAD_ID:-}" --arg db "$db" --arg key "$key" '
+    {key: $key, kind: $kind, acquired_at: $at, acquired_by: $by, acquired_in: $db,
+     cleanup: $cleanup, instructions: $instructions, verify: $verify}
+    | with_entries(select(.value != "")) + {handoffs: []}')
+  with_lock do_acquire "$db" "$key" "$replace" "$record"
+}
+
+do_release() { # db missing_ok all_dbs keys...
+  local db=$1 missing_ok=$2 everywhere=$3 key target found rc=0
+  shift 3
+  for key in "$@"; do
+    found=false
+    if [[ "$everywhere" == true ]]; then
+      for target in $(all_dbs); do
+        if sk get "$key@$target" >/dev/null 2>&1; then sk delete "$key@$target" >/dev/null; found=true; fi
+      done
+    elif get_value "$db" "$key" >/dev/null; then
+      sk delete "$key@$db" >/dev/null; found=true
+    fi
+    if [[ "$found" != true && "$missing_ok" != true ]]; then
+      if [[ "$everywhere" == true ]]; then note "$key is not in any ledger"; else note "$key is not in ledger $db"; fi
+      rc=1
+    fi
+  done
+  return $rc
+}
+
+cmd_release() {
+  local missing_ok=false everywhere=false keys=() key
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --missing-ok) missing_ok=true ;;
+      --all-dbs) everywhere=true ;;
+      -*) fail "release: unknown option $1" ;;
+      *) keys+=("$1") ;;
+    esac
+    shift
+  done
+  [[ ${#keys[@]} -gt 0 ]] || fail "release needs a KEY"
+  for key in "${keys[@]}"; do check_key "$key"; done
+  [[ "$everywhere" == true ]] || check_db "$db"
+  with_lock do_release "$db" "$missing_ok" "$everywhere" "${keys[@]}"
+}
+
+do_handoff() { # db to keys...
+  local db=$1 to=$2 key value
+  shift 2
+  for key in "$@"; do get_value "$db" "$key" >/dev/null || fail "$key is not in ledger $db"; done
+  for key in "$@"; do
+    value=$(get_value "$db" "$key")
+    value=$(jq -c --arg at "$(now)" --arg from "$db" --arg to "$to" --arg by "${T3CODE_THREAD_ID:-}" \
+      '.handoffs += [{at: $at, from: $from, to: $to, by: $by} | with_entries(select(.value != ""))]' <<<"$value")
+    # Target first: if this stops halfway the resource is in both ledgers, never in neither.
+    sk set "$key@$to" "$value" >/dev/null
+    sk delete "$key@$db" >/dev/null
+    echo "$key -> $to"
+  done
+}
+
+cmd_handoff() {
+  local to="" keys=() key
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --to) to=${2-}; shift ;;
+      --to=*) to=${1#--to=} ;;
+      -*) fail "handoff: unknown option $1" ;;
+      *) keys+=("$1") ;;
+    esac
+    shift
+  done
+  check_db "$to"
+  [[ "$to" != "$db" ]] || fail "handoff: $db is already the ledger"
+  [[ ${#keys[@]} -gt 0 ]] || fail "handoff needs a KEY"
+  for key in "${keys[@]}"; do check_key "$key"; done
+  with_lock do_handoff "$db" "$to" "${keys[@]}"
+}
+
+do_list() { # json dbs...
+  local json=$1 d key value
+  shift
+  for d in "$@"; do
+    while IFS=$'\t' read -r key value; do
+      [[ -n "$key" ]] || continue
+      jq -c --arg db "$d" --arg key "$key" '{db: $db, key: (.key // $key)} + .' <<<"$value"
+    done < <(entries "$d")
+  done | if [[ "$json" == true ]]; then jq -s .; else
+    jq -r '[.db, .key, (.cleanup // ("BY HAND: " + .instructions))] | @tsv'
+  fi
+}
+
+cmd_list() {
+  local json=false all=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=true ;;
+      --all) all=true ;;
+      *) fail "list: unknown argument $1" ;;
+    esac
+    shift
+  done
+  if [[ "$all" == true ]]; then
+    local dbs
+    mapfile -t dbs < <(all_dbs)
+    [[ ${#dbs[@]} -gt 0 ]] || { [[ "$json" == true ]] && echo '[]'; return 0; }
+    with_lock do_list "$json" "${dbs[@]}"
+  else
+    check_db "$db"
+    with_lock do_list "$json" "$db"
+  fi
+}
+
+cmd_show() {
+  [[ $# -eq 1 ]] || fail "show takes one KEY"
+  check_key "$1"; check_db "$db"
+  local value
+  value=$(with_lock get_value "$db" "$1") || fail "$1 is not in ledger $db"
+  jq . <<<"$value"
+}
+
+cmd_dbs() {
+  with_lock bash -c '
+    for d in $(skate list-dbs 2>/dev/null | sed -n "s/^@//p"); do
+      printf "%s\t%s\n" "$d" "$(skate list -k "@$d" 2>/dev/null | grep -c . || true)"
+    done'
+}
+
+cmd_clean() {
+  local dry=false keys=() key name value cleanup instructions verify status left=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) dry=true ;;
+      -*) fail "clean: unknown option $1" ;;
+      *) check_key "$1"; keys+=("$(tr '[:upper:]' '[:lower:]' <<<"$1")") ;; # Skate keys are case-insensitive
+    esac
+    shift
+  done
+  check_db "$db"
+  local listing
+  listing=$(with_lock entries "$db")
+  if [[ ${#keys[@]} -gt 0 ]]; then
+    for key in "${keys[@]}"; do
+      cut -f1 <<<"$listing" | grep -qxF "$key" || fail "$key is not in ledger $db"
+    done
+  fi
+  # Commands run without the lock: a cleanup may itself call ledger (the boat wrapper does).
+  while IFS=$'\t' read -r key value; do
+    [[ -n "$key" ]] || continue
+    if [[ ${#keys[@]} -gt 0 ]] && ! printf '%s\n' "${keys[@]}" | grep -qxF "$key"; then continue; fi
+    name=$(jq -r --arg key "$key" '.key // $key' <<<"$value")
+    cleanup=$(jq -r '.cleanup // empty' <<<"$value")
+    instructions=$(jq -r '.instructions // empty' <<<"$value")
+    verify=$(jq -r '.verify // empty' <<<"$value")
+    if [[ "$dry" == true ]]; then
+      printf '%s\t%s\n' "$name" "${cleanup:-BY HAND: $instructions}"
+      continue
+    fi
+    if [[ -n "$verify" ]]; then
+      status=0; bash -c "$verify" </dev/null >/dev/null 2>&1 || status=$?
+      if [[ $status -eq 1 ]]; then
+        cmd_release_quiet "$key"; echo "$name: already gone, released"; continue
+      fi
+    fi
+    if [[ -n "$cleanup" ]]; then
+      if bash -c "$cleanup" </dev/null; then
+        cmd_release_quiet "$key"; echo "$name: cleaned up, released"
+      else
+        note "$name: cleanup failed, kept: $cleanup"; left=1
+      fi
+    else
+      printf '%s: by hand, kept: %s\n' "$name" "$instructions"; left=1
+    fi
+  done <<<"$listing"
+  return $left
+}
+
+cmd_release_quiet() { with_lock do_release "$db" true false "$1"; }
+
+# --- main ------------------------------------------------------------------------------------------------------
+
+command -v skate >/dev/null 2>&1 || fail "skate is not installed (dot_Brewfile: charmbracelet/tap/skate)"
+command -v jq >/dev/null 2>&1 || fail "jq is not installed"
+
+db=${LEDGER_DB:-${T3CODE_THREAD_ID:-}}
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --db) db=${2-}; shift 2 ;;
+    --db=*) db=${1#--db=}; shift ;;
+    *) break ;;
+  esac
+done
+
+cmd=${1:-}
+[[ $# -gt 0 ]] && shift
+case "$cmd" in
+  acquire) check_db "$db"; cmd_acquire "$@" ;;
+  release) cmd_release "$@" ;;
+  handoff) check_db "$db"; cmd_handoff "$@" ;;
+  list) cmd_list "$@" ;;
+  show) cmd_show "$@" ;;
+  clean) cmd_clean "$@" ;;
+  dbs) cmd_dbs ;;
+  -h | --help | help) usage ;;
+  "") usage >&2; exit 2 ;;
+  *) fail "unknown command $cmd (see ledger --help)" ;;
+esac

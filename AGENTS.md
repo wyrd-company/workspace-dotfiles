@@ -10,6 +10,9 @@ Tools come from `dot_Brewfile`, `dot_npm-packages` and `dot_config/python/global
 `run_onchange_` script. A tool whose only install is the vendor's `install.sh` goes in `.chezmoidata/install-scripts.yml`.
 See `docs/install-scripts.md`.
 
+`ledger` records the resources a thread or task acquires and how to clean them up, in Skate databases; the boat
+wrapper records sandboxes itself. See `docs/ledger.md`.
+
 chezmoi keeps one block in `~/.bashrc` and `~/.zshrc` that sources `~/.config/shell/rc.d/*.sh`; shell integration for a
 tool goes there. The rest of those files is left alone. See `docs/shell.md`.
 
