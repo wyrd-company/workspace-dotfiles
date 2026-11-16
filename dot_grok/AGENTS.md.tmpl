@@ -1,8 +1,7 @@
 {{ template "instructions.md" . }}
 <grok-instructions>
-- My X subscription is a Premium subscription with weekly usage limits.
-- Your GitHub `gh` profile is `mmenm-grok[bot]`. `gh` is a wrapper that detects your specific shell environment and will switch profiles and re-authenticate automatically.
+- Your `gh` identity is `wyrd-grok[bot]`: the `gh` shim mints a GitHub App installation token for it on every call. If `gh` fails to authenticate, report it; do not log in another way.
 - GitHub PRs
-    - NEVER USE THE GitHub PR creation tool, use `gh` instead.
-    - DO NOT use `[codex]` in PR titles (your `gh` login already identifies you as codex).
+    - NEVER USE the GitHub PR creation tool, use `gh` instead.
+    - DO NOT use `[grok]` in PR titles (your `gh` login already identifies you as grok).
 </grok-instructions>

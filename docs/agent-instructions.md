@@ -21,8 +21,7 @@ These files provide harness/provider specific instructions. This helps shape age
 - `~/.claude/CLAUDE.md`: Claude Code
 - `~/.codex/AGENTS.md`: Codex
 - `~/.pi/agent/AGENTS.md`: pi
-
-Grok (`~/.grok/AGENTS.md`) is deferred until I have access.
+- `~/.grok/AGENTS.md`: Grok
 
 ## Workspace
 

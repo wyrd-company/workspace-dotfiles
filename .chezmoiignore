@@ -1,6 +1,4 @@
 .includes/**/*.*
-# Deferred: no grok access yet
-.grok
 docs/**/*.*
 scripts/**
 tests/**
