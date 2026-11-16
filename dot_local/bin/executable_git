@@ -314,8 +314,11 @@ if [ -n "${GIT_OPERATOR:-}" ]; then
       echo "git: GIT_OPERATOR=automation is refused inside a T3 thread; agent threads commit as a person." >&2
       exit 1
     fi
-    unset GIT_OPERATOR  # git-automation runs `git` again; without this the shim would loop
-    exec git-automation "$@"
+    # git-automation exports the bot's identity and runs `git` again. Put the real git first on
+    # its PATH, so that `git` is not this shim, which would refuse commits and pushes for want of
+    # an operator, or loop if GIT_OPERATOR were kept.
+    unset GIT_OPERATOR
+    PATH="$(dirname -- "$real_git"):$PATH" exec git-automation "$@"
   fi
   if [ -n "${T3CODE_THREAD_ID:-}" ]; then
     if [ -z "$registered" ]; then ask_message; exit 1; fi

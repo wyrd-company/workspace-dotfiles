@@ -308,6 +308,27 @@ class GitOperatorTests(unittest.TestCase):
         result = self.assert_requires_operator("commit", thread=True, settings={"GIT_OPERATOR": "someone-else"})
         self.assertIn("not 'someone-else'", result.stderr)
 
+    def test_automation_commits_and_pulls_outside_threads(self):
+        # Like workspace-ansible's /usr/local/bin/git-automation: export the bot identity, then `git`
+        # by name, which the PATH would resolve to this shim again.
+        automation = self.bin / "git-automation"
+        automation.write_text(
+            "#!/bin/sh\n"
+            "export GIT_AUTHOR_NAME=bot GIT_AUTHOR_EMAIL=bot@example.test\n"
+            "export GIT_COMMITTER_NAME=bot GIT_COMMITTER_EMAIL=bot@example.test\n"
+            'exec git "$@"\n'
+        )
+        automation.chmod(0o755)
+        settings = {"GIT_OPERATOR": "automation"}
+        self.run_git("commit", "--allow-empty", "-qm", "by automation", settings=settings, check=True)
+        self.assertEqual(
+            self.run_git("log", "-1", "--format=%an %cn", check=True).stdout.strip(), "bot bot",
+        )
+        self.run_git("push", "-q", "origin", "main", settings=settings, check=True)
+        self.run_git("reset", "-q", "--hard", "HEAD~1", check=True)
+        result = self.run_git("pull", "-q", "--rebase", "origin", "main", settings=settings)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_ssh_guard_allows_reads_and_blocks_publication(self):
         ssh = self.bin / "ssh"
         ssh.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
