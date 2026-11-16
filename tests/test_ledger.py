@@ -49,7 +49,6 @@ class LedgerTests(unittest.TestCase):
             (["acquire", "a:b c", "--cleanup", "x"], "bad key"),
             (["acquire", "a:b@c", "--cleanup", "x"], "bad key"),
             (["acquire", "a:b"], "needs --cleanup or --instructions"),
-            (["--db", "x@y", "acquire", "a:b", "--cleanup", "x"], "bad ledger name"),
         ):
             with self.subTest(args=args):
                 result = self.ledger(*args, check=False)
@@ -132,6 +131,25 @@ class LedgerTests(unittest.TestCase):
                                     range(8)))
         self.assertEqual([r.returncode for r in results], [0] * 8, [r.stderr for r in results])
         self.assertEqual(len(self.records()), 8)
+
+    def test_ledger_names_are_canonical(self):
+        # A delegated task's thread id holds `%` and may hold `/`; skate lowercases names and cuts them at `/`.
+        thread = "thread:delegated-task:command%3Amcp/X y"
+        self.ledger("acquire", "a:b", "--instructions", "x", T3CODE_THREAD_ID=thread)
+        self.assertEqual(self.ledger("dbs").stdout, "thread:delegated-task:command%3amcp%2fx%20y\t1\n")
+        self.assertEqual(json.loads(self.ledger("list", "--json", T3CODE_THREAD_ID=thread).stdout)[0]["key"], "a:b")
+        self.ledger("handoff", "--to", "Task-9", "a:b", T3CODE_THREAD_ID=thread)
+        self.ledger("--db", "TASK-9", "show", "a:b")
+        self.ledger("--db", "task-9", "release", "a:b")
+        self.ledger("--db", "x@y", "acquire", "a:c", "--instructions", "x")
+        self.assertEqual(self.ledger("dbs").stdout, "x%40y\t1\n")
+
+    def test_an_emptied_ledger_is_deleted(self):
+        self.ledger("acquire", "a:1", "--instructions", "x")
+        self.ledger("acquire", "a:2", "--instructions", "x", LEDGER_DB="task-3")
+        self.ledger("handoff", "--to", "task-4", "a:1")
+        self.ledger("release", "--all-dbs", "a:2")
+        self.assertEqual(self.ledger("dbs").stdout, "task-4\t1\n")
 
     def test_dbs_counts_entries(self):
         self.ledger("acquire", "a:1", "--instructions", "x")

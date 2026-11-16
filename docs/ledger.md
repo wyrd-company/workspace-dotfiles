@@ -13,7 +13,11 @@ Each ledger is a [Skate](https://github.com/charmbracelet/skate) database in the
 container rebuild. Skate v1 is local only: a ledger is visible to this workspace's container, not to Boat sandboxes
 or other machines.
 
-- **Ledger name.** `--db`, else `LEDGER_DB`, else `T3CODE_THREAD_ID`. A task's ledger is `task-<id>`.
+- **Ledger name.** `--db`, else `LEDGER_DB`, else `T3CODE_THREAD_ID`. A task's ledger is `task-<id>`. Skate lowercases
+  database names and cuts them at a `/`, and thread ids can hold both (a delegated task's is
+  `thread:delegated-task:command%3Amcp...`). So `ledger` lowercases every name and percent-encodes, in lowercase
+  hex, each character outside `a-z 0-9 . _ : % -`. `Task-7` and `task-7` are one ledger. When a release or
+  handoff empties a ledger, the ledger is deleted.
 - **Key.** `kind:name`, naming the resource itself, so the same resource always has the same key: `boat:sandbox/<id>`,
   `worktree:<path>`, `gh:branch/<owner>/<repo>/<branch>`. Skate lowercases keys. The record keeps the original
   case for display, and `Foo:x` and `foo:x` are the same resource.

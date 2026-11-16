@@ -23,7 +23,8 @@ usage: ledger [--db DB] acquire KEY (--cleanup CMD | --instructions TEXT)... [--
 
 KEY is kind:name, e.g. boat:sandbox/sbx_123 or worktree:/workspace/repo/worktrees/x; no whitespace or @.
 Skate ignores case in keys: Foo:x and foo:x are the same resource.
-DB defaults to $LEDGER_DB, then $T3CODE_THREAD_ID. A task's ledger is task-<id>.
+DB defaults to $LEDGER_DB, then $T3CODE_THREAD_ID. A task's ledger is task-<id>. Names are lowercased and
+any character outside a-z 0-9 . _ : % - is percent-encoded, as skate cannot store it. An emptied ledger is deleted.
 
 acquire   record a resource. --cleanup is a shell command that removes it and is safe to run twice;
           --instructions is for what a person or agent must do by hand. --verify is a command that
@@ -40,9 +41,26 @@ fail() { printf 'ledger: %s\n' "$*" >&2; exit 2; }
 note() { printf 'ledger: %s\n' "$*" >&2; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
+# Skate lowercases database names and cuts them at a `/`, so every name is lowercased and each character outside
+# [a-z0-9._:%-] percent-encoded. Thread ids can hold `/` and `%`: a delegated task's is thread:delegated-task:...%3A...
+canon_db() {
+  local name c out=""
+  name=$(LC_ALL=C tr '[:upper:]' '[:lower:]' <<<"$1")
+  while IFS= read -r -n1 c; do
+    [[ -n "$c" ]] || continue
+    if [[ "$c" =~ ^[a-z0-9._:%-]$ ]]; then out+=$c; else out+=$(printf '%%%02x' "'$c"); fi
+  done < <(LC_ALL=C printf '%s' "$name")
+  printf '%s' "$out"
+}
+
 check_db() {
   [[ -n "$1" ]] || fail "no ledger: pass --db, or set LEDGER_DB or T3CODE_THREAD_ID."
-  [[ "$1" =~ ^[A-Za-z0-9._:-]+$ ]] || fail "bad ledger name '$1': use letters, digits and . _ : -"
+}
+
+drop_if_empty() { # delete a ledger with no entries left; skate asks for confirmation
+  if db_exists "$1" && [[ -z "$(skate list -k "@$1" 2>/dev/null)" ]]; then
+    echo y | skate delete-db "@$1" >/dev/null 2>&1 || true
+  fi
 }
 
 check_key() {
@@ -128,10 +146,12 @@ do_release() { # db missing_ok all_dbs keys...
     found=false
     if [[ "$everywhere" == true ]]; then
       for target in $(all_dbs); do
-        if sk get "$key@$target" >/dev/null 2>&1; then sk delete "$key@$target" >/dev/null; found=true; fi
+        if sk get "$key@$target" >/dev/null 2>&1; then
+          sk delete "$key@$target" >/dev/null; found=true; drop_if_empty "$target"
+        fi
       done
     elif get_value "$db" "$key" >/dev/null; then
-      sk delete "$key@$db" >/dev/null; found=true
+      sk delete "$key@$db" >/dev/null; found=true; drop_if_empty "$db"
     fi
     if [[ "$found" != true && "$missing_ok" != true ]]; then
       if [[ "$everywhere" == true ]]; then note "$key is not in any ledger"; else note "$key is not in ledger $db"; fi
@@ -171,14 +191,15 @@ do_handoff() { # db to keys...
     sk delete "$key@$db" >/dev/null
     echo "$key -> $to"
   done
+  drop_if_empty "$db"
 }
 
 cmd_handoff() {
   local to="" keys=() key
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --to) to=${2-}; shift ;;
-      --to=*) to=${1#--to=} ;;
+      --to) to=$(canon_db "${2-}"); shift ;;
+      --to=*) to=$(canon_db "${1#--to=}") ;;
       -*) fail "handoff: unknown option $1" ;;
       *) keys+=("$1") ;;
     esac
@@ -304,6 +325,8 @@ while [[ $# -gt 0 ]]; do
     *) break ;;
   esac
 done
+
+db=$(canon_db "$db")
 
 cmd=${1:-}
 [[ $# -gt 0 ]] && shift
