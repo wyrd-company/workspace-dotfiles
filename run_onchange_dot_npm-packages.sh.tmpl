@@ -1,4 +1,5 @@
 #!/bin/bash
 # dot_npm-packages hash: {{ include "dot_npm-packages" | sha256sum }}
+# Packages whose install scripts npm 11 may run; it skips the rest. See docs/npm-packages.md.
 set -e
-xargs npm install -g < {{ joinPath .chezmoi.sourceDir "dot_npm-packages" | quote }}
+xargs npm install -g --allow-scripts=agent-browser < {{ joinPath .chezmoi.sourceDir "dot_npm-packages" | quote }}

@@ -8,7 +8,7 @@ The AWS CLI is configured for Cloudflare R2, one profile per bucket, with keys r
 
 Tools come from `dot_Brewfile`, `dot_npm-packages` and `dot_config/python/global-requirements.txt`, each installed by a
 `run_onchange_` script. A tool whose only install is the vendor's `install.sh` goes in `.chezmoidata/install-scripts.yml`.
-See `docs/install-scripts.md`.
+See `docs/install-scripts.md`. npm commands are linked into `~/.local/bin`; see `docs/npm-packages.md`.
 
 `ledger` records the resources a thread or task acquires and how to clean them up, in Skate databases; the boat
 wrapper records sandboxes itself. See `docs/ledger.md`.
