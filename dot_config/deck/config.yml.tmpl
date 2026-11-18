@@ -1,0 +1,31 @@
+{{- $workspace := include .deck.workspace_config | fromYaml -}}
+{{- if not (and (hasKey $workspace "workspace") $workspace.workspace) -}}
+{{-   fail (printf "workspace is required in %s" .deck.workspace_config) -}}
+{{- end -}}
+# Managed by chezmoi (workspace-dotfiles, dot_config/deck/config.yml.tmpl). See docs/deck.md.
+service:
+  address: {{ .deck.address | quote }}
+  host_key: {{ .deck.host_key | quote }}
+
+# The Wyrwood socket adds the binding's token. Its policy deck-client signs with this key only.
+vault:
+  address: unix:///run/wyrwood/vault.sock
+key:
+  mount: transit
+  name: {{ printf "deck-%s" $workspace.workspace | quote }}
+
+# The harness's own session, most preferred first.
+session:
+  variables:
+    - T3CODE_THREAD_ID
+    - CLAUDE_CODE_SESSION_ID
+    - CODEX_THREAD_ID
+
+# Kept with the workspace's state, so threads, cursors and sends survive a rebuild.
+store:
+  path: {{ joinPath .chezmoi.homeDir ".local/share/deck/deck.db" | quote }}
+{{- if .deck.default_channel }}
+
+channels:
+  default: {{ .deck.default_channel | quote }}
+{{- end }}

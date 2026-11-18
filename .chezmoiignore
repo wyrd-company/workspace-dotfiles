@@ -6,3 +6,5 @@ tests/**
 AGENTS.md
 LICENSE
 README.md
+# Deck: no config until the service's host key is known
+{{ if not .deck.host_key }}.config/deck{{ end }}

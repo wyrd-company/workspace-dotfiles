@@ -1,0 +1,10 @@
+# The Deck service the `deck` CLI talks to (dot_config/deck/config.yml.tmpl, docs/deck.md). Nothing here is secret.
+# host_key is the public line `deck service host-key` (or the homelab's deck-bootstrap.fish) prints; while it is
+# empty, chezmoi writes no Deck config.
+deck:
+  address: deck.internal:2222
+  host_key: ""
+  # Where `deck post` goes without a channel: [<bot>/]<channel id>, or empty for none.
+  default_channel: ""
+  # The workspace's options; its `workspace` names the Transit key, deck-<workspace>.
+  workspace_config: /etc/workspace/config.yml
