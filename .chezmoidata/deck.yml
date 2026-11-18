@@ -3,7 +3,7 @@
 # empty, chezmoi writes no Deck config.
 deck:
   address: deck.internal:2222
-  host_key: ""
+  host_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA2AmpKfEvdXD1T9xwfACAFZ7CLlQZKHBZUtEb5Nl/us deck.internal"
   # Where `deck post` goes without a channel: [<bot>/]<channel id>, or empty for none.
   default_channel: ""
   # The workspace's options; its `workspace` names the Transit key, deck-<workspace>.
