@@ -29,3 +29,18 @@ store:
 channels:
   default: {{ .deck.default_channel | quote }}
 {{- end }}
+{{- with .deck.aliases }}
+{{- if or .users .roles }}
+
+# Mention targets: deck post|reply --mention NAME, --mention-role NAME.
+aliases:
+{{- range $kind := list "users" "roles" }}
+{{-   with index $.deck.aliases $kind }}
+  {{ $kind }}:
+{{-     range $name, $id := . }}
+    {{ $name }}: {{ $id | toString | quote }}
+{{-     end }}
+{{-   end }}
+{{- end }}
+{{- end }}
+{{- end }}

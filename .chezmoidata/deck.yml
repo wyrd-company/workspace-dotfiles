@@ -8,3 +8,11 @@ deck:
   default_channel: ""
   # The workspace's options; its `workspace` names the Transit key, deck-<workspace>.
   workspace_config: /etc/workspace/config.yml
+  # Names for `deck post|reply --mention NAME` and `--mention-role NAME`, mapped to Discord IDs (Developer Mode, then
+  # Copy User ID or Copy Role ID). A user's name is their git operator handle. Names are case-sensitive and not all digits.
+  aliases:
+    users:
+      boblangley: "120042068486651904"
+      iradesa: "280148463789015040"
+    roles:
+      team: "1572717679809273906"

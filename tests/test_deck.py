@@ -54,6 +54,11 @@ class DeckConfigTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('default: "wyrdbot/1287000000000000002"', result.stdout)
 
+    def test_mention_aliases_render_as_quoted_ids(self):
+        result = self.render(TEMPLATE)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertRegex(result.stdout, r'\naliases:\n  users:\n(    [a-z][a-z0-9-]*: "[0-9]+"\n)+  roles:\n')
+
     def test_a_workspace_without_a_name_fails(self):
         options = self.root / "unnamed.yml"
         options.write_text("org: example\n")

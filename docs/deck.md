@@ -12,6 +12,9 @@ chezmoi writes `~/.config/deck/config.yml` from `dot_config/deck/config.yml.tmpl
 - `session.variables`: `T3CODE_THREAD_ID`, then `CLAUDE_CODE_SESSION_ID`, then `CODEX_THREAD_ID`, so each thread
   keeps its own conversations.
 - `store.path`: `~/.local/share/deck/deck.db`, the workspace's mounted Deck state.
+- `aliases`: names for `--mention` and `--mention-role`, from `deck.aliases.users` and `deck.aliases.roles`. A
+  person's name is their git operator handle, so `deck post --mention boblangley` reaches the same person who commits
+  as `boblangley`. To add one, copy the ID in Discord (Developer Mode, then Copy User ID or Copy Role ID).
 
 ## Onboarding a workspace
 
