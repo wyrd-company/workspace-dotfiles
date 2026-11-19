@@ -11,7 +11,8 @@ I layer context files:
 
 This is common, general information about me, my values, how I work, and how agents should work with me.
 
-It is `.includes/CORE-INSTRUCTIONS.md`, which chezmoi includes at the top of each harness file.
+It is `.includes/CORE-INSTRUCTIONS.md`, which chezmoi includes at the top of each harness file through `.chezmoitemplates/instructions.md`. A fork's
+operator notes in `.includes/fork/*.md` follow it in a `<fork-instructions>` tag; see [Fork overlay](fork-overlay.md).
 
 ## Harness
 

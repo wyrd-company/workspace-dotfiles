@@ -1,4 +1,4 @@
-{{ include ".includes/CORE-INSTRUCTIONS.md" }}
+{{ template "instructions.md" . }}
 <codex-instructions>
 - Your `gh` identity is `wyrd-codex[bot]`: the `gh` shim mints a GitHub App installation token for it on every call. If `gh` fails to authenticate, report it; do not log in another way.
 - GitHub PRs

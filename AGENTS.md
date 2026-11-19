@@ -18,10 +18,13 @@ wrapper records sandboxes itself. See `docs/ledger.md`.
 chezmoi keeps one block in `~/.bashrc` and `~/.zshrc` that sources `~/.config/shell/rc.d/*.sh`; shell integration for a
 tool goes there. The rest of those files is left alone. See `docs/shell.md`.
 
+Forks add data in `.chezmoidata/zz-fork/*.yml` and operator notes in `.includes/fork/*.md`; upstream never commits
+there. See `docs/fork-overlay.md`.
+
 ## Git identity (operators)
 
 Devcontainers are shared by several humans, and every commit and push must name the operator who asked for it.
-Operators are declared in `.chezmoidata/operators.yml`; `run_onchange_after_git-operators.sh.tmpl` renders a
+Operators are declared in `.chezmoidata/operators.yml` (a fork overrides them in `.chezmoidata/zz-fork/`); `run_onchange_after_git-operators.sh.tmpl` renders a
 `git-<handle>` wrapper, an operator env file and the GitHub .pub for each.
 
 `~/.local/bin/git` is a shim in front of the real git. It is the one place that applies an identity (name, email

@@ -1,4 +1,4 @@
-{{ include ".includes/CORE-INSTRUCTIONS.md" }}
+{{ template "instructions.md" . }}
 <claude-instructions>
 - Your `gh` identity is `wyrd-claude[bot]`: the `gh` shim mints a GitHub App installation token for it on every call. If `gh` fails to authenticate, report it; do not log in another way.
 - If Claude.ai connectors are not authorized it is because I do not want them authorized.

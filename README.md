@@ -23,3 +23,6 @@ after the system helper is installed, then start a new Claude Code session.
 `skills sync` builds shared skills with workspace and project overlays and
 maintains the Claude Code, Codex and Pi views. It also runs after every chezmoi
 apply. See [Skills](docs/skills.md) for setup, migration, rollback and checks.
+
+A fork overlays its own operators, data and instructions without editing upstream's files, in
+`.chezmoidata/zz-fork/` and `.includes/fork/`. See [Fork overlay](docs/fork-overlay.md).
