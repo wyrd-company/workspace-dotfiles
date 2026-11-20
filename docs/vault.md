@@ -56,6 +56,33 @@ path "transit/sign/gh-app-wyrd-automation" {
 
 Each agent App in the config (`wyrd-claude[bot]`, `wyrd-codex[bot]`, `wyrd-pi[bot]`, `wyrd-grok[bot]`) needs the same grant on its own `transit/sign/<transit_key>` for agent sessions to mint tokens.
 
+### Adding an App
+
+Each App's private key is a Transit key named `gh-app-wyrd-<name>` in the `wyrwood` namespace. It is imported once and never exported, so OpenBao holds the only copy.
+
+1. Create the App in the `wyrd-company` organization, install it on the repositories it needs, and note its App ID. Generate a private key; GitHub downloads it as a `.pem`.
+2. On a workstation that reaches OpenBao (not in a workspace container: the Wyrwood socket can't import keys), sign in with a token that can write `transit/keys/*` in `wyrwood`, then run:
+
+   ```fish
+   fish scripts/openbao/gh-app-key.fish
+   ```
+
+   It asks for the `.pem` path and the key name, and asks for a token only if `bao token lookup` fails. It imports the key, checks that Transit's public key matches the file's, and deletes the file with `shred`. It stops without touching the file if the key already exists, the import fails or the keys don't match. The script uses `BAO_ADDR`, defaulting to `https://openbao.internal:8200`.
+3. In Wyrwood's interface, add to the policy the agent Apps' grants are in:
+
+   ```hcl
+   path "transit/sign/gh-app-wyrd-<name>" {
+     capabilities = ["update"]
+   }
+   ```
+
+4. Add the App to `dot_config/gh-vault-agent-app-token/config.yml` under `apps`, with its `app_id` and `transit_key`. If an agent harness should use it automatically, also map the harness under `harnesses` and make sure `dot_local/bin/executable_gh` checks the harness's marker variable.
+5. Add the App to the list above.
+
+To check the key, from a workspace that selects the policy: `bao write transit/sign/gh-app-wyrd-<name>/sha2-256 input=aGk= signature_algorithm=pkcs1v15` should return a `vault:v1:` signature. GitHub's App JWTs are RS256, so signing needs `signature_algorithm=pkcs1v15`; Transit's default, PSS, produces JWTs GitHub rejects.
+
+The import can't overwrite a key. To replace a key, generate a new one on GitHub and import it under a new name, or delete the old Transit key first (`bao write -namespace=wyrwood transit/keys/<key>/config deletion_allowed=true`, then `bao delete -namespace=wyrwood transit/keys/<key>`). Then delete the old key on GitHub.
+
 ## ntfy
 
 Dagu notifies through public [ntfy.sh](https://ntfy.sh), where anyone who knows a topic can read it, so the topic is a secret. It is at `kv/workspace/ntfy`, field `topic`, and `base.yml` in workspace-ansible gives it to every workflow as `NTFY_TOPIC`.
