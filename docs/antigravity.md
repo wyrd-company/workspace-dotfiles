@@ -10,12 +10,12 @@ subscription traffic.
 | Path | Purpose |
 | --- | --- |
 | `~/.gemini/AGENTS.md` | Core instructions, with the `wyrd-gemini[bot]` `gh` identity. `agy` sets `ANTIGRAVITY_AGENT=1`, which the `gh` shim reads. |
-| `~/.gemini/config/mcp_config.json` | The mnemonic MCP server, run from the Wyrd marketplace checkout. |
+| `~/.gemini/config/mcp_config.json` | The mnemonic MCP server (from the Wyrd marketplace checkout) and Xolotl's MCP gateway via the loopback Caddy proxy (`http://127.0.0.1:18317/mcp`, authenticated per request by `caddy-header-auth` running `/usr/local/bin/xolotl-mcp-headers`). |
 | `~/.gemini/config/hooks.json` | A `SessionStart` hook, `~/.local/bin/agy-git-operator-hook`: it wraps the git-operator script, whose plain text Antigravity needs as `{"injectSteps": [{"userMessage": ...}]}`. |
 | `~/.gemini/config/skills` | A link to the published skills at `~/.agents/skills`. |
 
 `mcp_config.json` and `hooks.json` are modify templates, like `~/.claude.json`: chezmoi sets only its own
-`mnemonic` server and `wyrd` hook group and keeps everything else, such as servers added with `agy mcp add`.
+`mnemonic` and `xolotl` servers and `wyrd` hook group and keeps everything else, such as servers added with `agy mcp add`.
 
 The sign-in, `settings.json` and conversations are the client's own and chezmoi does not touch them.
 
@@ -30,7 +30,5 @@ other real file where it is.
 
 ## Not covered
 
-- Xolotl's MCP gateway: a remote MCP server in `mcp_config.json` takes only static `headers`, with no helper that
-  reads the key through Wyrwood. A stdio bridge would be needed.
 - Environment for the mnemonic server: the file passes the Vault socket, CA and SSH agent paths. Antigravity does not
   document whether a stdio server inherits the rest, such as `T3CODE_THREAD_ID`.

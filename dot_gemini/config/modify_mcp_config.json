@@ -1,13 +1,22 @@
 {{- /* chezmoi:modify-template */ -}}
-{{- /* Antigravity writes this file too (agy mcp add, the T3 provider). Own only the mnemonic server; keep every other server. */ -}}
-{{- $want := dict "command" "sh" "args" (list "/usr/local/share/agent-marketplace/plugins/mnemonic/scripts/mnemonic-mcp.sh") "env" (dict "VAULT_ADDR" "unix:///run/wyrwood/vault.sock" "NODE_EXTRA_CA_CERTS" "/usr/local/share/ca-certificates/homelab-root.crt" "SSH_AUTH_SOCK" "/run/wyrwood/ssh-agent.sock") -}}
+{{- /* Antigravity writes this file too (agy mcp add, the T3 provider). Own only mnemonic and xolotl; keep every other server. */ -}}
+{{- $want := dict
+  "mnemonic" (dict "command" "sh" "args" (list "/usr/local/share/agent-marketplace/plugins/mnemonic/scripts/mnemonic-mcp.sh") "env" (dict "VAULT_ADDR" "unix:///run/wyrwood/vault.sock" "NODE_EXTRA_CA_CERTS" "/usr/local/share/ca-certificates/homelab-root.crt" "SSH_AUTH_SOCK" "/run/wyrwood/ssh-agent.sock"))
+  "xolotl" (dict "url" "http://127.0.0.1:18317/mcp")
+-}}
 {{- $config := dict -}}
 {{- if trim .chezmoi.stdin -}}
 {{-   $config = fromJson .chezmoi.stdin -}}
 {{- end -}}
-{{- $current := dig "mcpServers" "mnemonic" "\x00unset" $config -}}
-{{- if ne (toJson $current) (toJson $want) -}}
-{{-   $config = setValueAtPath "mcpServers.mnemonic" $want $config -}}
+{{- $changed := false -}}
+{{- range $name, $entry := $want -}}
+{{-   $current := dig "mcpServers" $name "\x00unset" $config -}}
+{{-   if ne (toJson $current) (toJson $entry) -}}
+{{-     $config = setValueAtPath (printf "mcpServers.%s" $name) $entry $config -}}
+{{-     $changed = true -}}
+{{-   end -}}
+{{- end -}}
+{{- if $changed -}}
 {{    toPrettyJson $config }}
 {{- else -}}
 {{    .chezmoi.stdin }}

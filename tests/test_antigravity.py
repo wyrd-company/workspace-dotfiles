@@ -12,6 +12,7 @@ import unittest
 REPO = Path(__file__).resolve().parents[1]
 LINKER = REPO / "run_after_link-antigravity-t3-profile.sh"
 HOOK = REPO / "dot_local/bin/executable_agy-git-operator-hook"
+MCP_TEMPLATE = REPO / "dot_gemini/config/modify_mcp_config.json"
 
 
 class LinkerTests(unittest.TestCase):
@@ -77,6 +78,32 @@ class HookTests(unittest.TestCase):
         steps = data.get("injectSteps")
         if steps is not None:
             self.assertTrue(all(isinstance(step.get("userMessage"), str) for step in steps))
+
+
+@unittest.skipUnless(shutil.which("chezmoi"), "chezmoi is not installed")
+class McpConfigTemplateTests(unittest.TestCase):
+    def render(self, stdin_text):
+        result = subprocess.run(
+            ["chezmoi", "execute-template", "--with-stdin", "--file", str(MCP_TEMPLATE)],
+            input=stdin_text,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout
+
+    def test_adds_mnemonic_and_xolotl_while_preserving_user_servers(self):
+        existing = json.dumps({"mcpServers": {"custom": {"url": "https://example.test/mcp"}}})
+        rendered = json.loads(self.render(existing))
+        servers = rendered["mcpServers"]
+        self.assertEqual(servers["custom"], {"url": "https://example.test/mcp"})
+        self.assertEqual(servers["xolotl"], {"url": "http://127.0.0.1:18317/mcp"})
+        self.assertEqual(servers["mnemonic"]["command"], "sh")
+
+    def test_is_idempotent_when_unchanged(self):
+        first = self.render("")
+        second = self.render(first)
+        self.assertEqual(second, first)
 
 
 if __name__ == "__main__":
