@@ -1,0 +1,14 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /* Own only the "wyrd" hook group: the git-operator SessionStart hook. Keep every other group. */ -}}
+{{- $want := dict "enabled" true "SessionStart" (list (dict "type" "command" "command" (printf "%s/.local/bin/agy-git-operator-hook" .chezmoi.homeDir) "timeout" 10)) -}}
+{{- $config := dict -}}
+{{- if trim .chezmoi.stdin -}}
+{{-   $config = fromJson .chezmoi.stdin -}}
+{{- end -}}
+{{- $current := dig "wyrd" "\x00unset" $config -}}
+{{- if ne (toJson $current) (toJson $want) -}}
+{{-   $config = setValueAtPath "wyrd" $want $config -}}
+{{    toPrettyJson $config }}
+{{- else -}}
+{{    .chezmoi.stdin }}
+{{- end -}}

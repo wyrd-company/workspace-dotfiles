@@ -1,0 +1,17 @@
+#!/bin/sh
+# SessionStart hook for the Antigravity CLI: tell the agent which git operator this T3 thread commits as, or
+# that it must ask the user and register one. Antigravity expects a JSON object on stdout and injects
+# `injectSteps` as a user message; the script it wraps, from the Wyrd marketplace checkout, prints plain
+# text. It never fails the session: with nothing to say it prints `{}`.
+export PATH="${PATH:-/usr/bin:/bin}:/home/linuxbrew/.linuxbrew/bin"
+
+script=/usr/local/share/agent-marketplace/plugins/git-operator/scripts/session-start.sh
+out=
+[ -r "$script" ] && out=$(sh "$script" 2>/dev/null)
+
+if [ -n "$out" ] && command -v jq >/dev/null 2>&1; then
+  printf '%s' "$out" | jq -Rs '{injectSteps: [{userMessage: .}]}'
+else
+  echo '{}'
+fi
+exit 0

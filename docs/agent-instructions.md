@@ -22,6 +22,7 @@ These files provide harness/provider specific instructions. This helps shape age
 - `~/.codex/AGENTS.md`: Codex
 - `~/.pi/agent/AGENTS.md`: pi
 - `~/.grok/AGENTS.md`: Grok
+- `~/.gemini/AGENTS.md`: Antigravity (see [Antigravity](antigravity.md))
 
 ## Workspace
 
