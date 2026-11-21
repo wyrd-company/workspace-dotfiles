@@ -38,7 +38,7 @@ esac
 # Only intercept calls that request an App identity. Keep the harness marker
 # list in sync with internal/identity.Markers; empty values do not opt in.
 agent=0
-for marker in GH_LOGIN CLAUDECODE CODEX_THREAD_ID CURSOR_AGENT PI_CODING_AGENT COPILOT_CLI ANTIGRAVITY_AGENT; do
+for marker in GH_LOGIN CLAUDECODE CODEX_THREAD_ID CURSOR_AGENT PI_CODING_AGENT COPILOT_CLI ANTIGRAVITY_AGENT GROK_AGENT; do
   if [ -n "${!marker:-}" ]; then
     agent=1
     break

@@ -44,7 +44,7 @@ KV v2 ACL paths include `data/`; the `bao kv` and chezmoi paths do not. No `sys/
 
 ## GitHub App tokens
 
-`gh vault-agent-app-token` (configured in `dot_config/gh-vault-agent-app-token/config.yml`) mints GitHub App installation tokens by signing the App JWT with an OpenBao Transit key. The `gh` shim (`dot_local/bin/executable_gh`) calls it when `GH_LOGIN` or an agent harness marker is set.
+`gh vault-agent-app-token` (configured in `dot_config/gh-vault-agent-app-token/config.yml`) mints GitHub App installation tokens by signing the App JWT with an OpenBao Transit key. The `gh` shim (`dot_local/bin/executable_gh`) calls it when `GH_LOGIN` or an agent harness marker is set. Grok sets `GROK_AGENT` and is `harnesses.grok` (`wyrd-grok[bot]`). Antigravity sets `ANTIGRAVITY_AGENT` and is `harnesses.antigravity` (`wyrd-gemini[bot]`).
 
 Automation (workspace-ansible, Dagu, and `git automation`, which project-template hooks use) uses git over HTTPS as `wyrd-automation[bot]`, with this as its credential helper; humans and agents use SSH through `git <handle>`. Every workspace binding must select a Wyrwood policy with:
 
@@ -54,7 +54,7 @@ path "transit/sign/gh-app-wyrd-automation" {
 }
 ```
 
-Each agent App in the config (`wyrd-claude[bot]`, `wyrd-codex[bot]`, `wyrd-pi[bot]`, `wyrd-grok[bot]`) needs the same grant on its own `transit/sign/<transit_key>` for agent sessions to mint tokens.
+Each agent App in the config (`wyrd-claude[bot]`, `wyrd-codex[bot]`, `wyrd-gemini[bot]`, `wyrd-pi[bot]`, `wyrd-grok[bot]`) needs the same grant on its own `transit/sign/<transit_key>` for agent sessions to mint tokens.
 
 ### Adding an App
 

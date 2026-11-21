@@ -2,6 +2,7 @@ harnesses:
   antigravity: wyrd-gemini[bot]   # ANTIGRAVITY_AGENT
   claude: wyrd-claude[bot]        # CLAUDECODE
   codex: wyrd-codex[bot]          # CODEX_THREAD_ID
+  grok: wyrd-grok[bot]            # GROK_AGENT
   pi: wyrd-pi[bot]                # PI_CODING_AGENT
 
 apps:
