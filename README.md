@@ -20,6 +20,10 @@ this connection in `/etc/codex/config.toml`, so that entry stays in Ansible.
 Apply both repositories with `ansible-sync`, or run `chezmoi apply ~/.claude.json`
 after the system helper is installed, then start a new Claude Code session.
 
+T3 Code's `~/.t3/userdata/settings.json` is updated the same way. The workspace favorites, idle
+and project-list preferences, and the Antigravity and Grok provider instances are merged in.
+The rest of the file is left as T3 wrote it.
+
 `skills sync` builds shared skills with workspace and project overlays and
 maintains the Claude Code, Codex and Pi views. It also runs after every chezmoi
 apply. See [Skills](docs/skills.md) for setup, migration, rollback and checks.

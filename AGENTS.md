@@ -77,6 +77,12 @@ sets only the required Xolotl MCP connection keys, preserving other settings and
 unchanged file through byte for byte. It reads the URL from `/etc/workspace/config.yml`;
 the shared header helper is installed by workspace-ansible.
 
+T3 Code writes `~/.t3/userdata/settings.json` itself. `dot_t3/userdata/modify_private_settings.json`
+sets the workspace favorites, the idle and project-list preferences, and the Antigravity and Grok
+provider instances. `favorites` is replaced as a whole. Each provider instance sets only `driver`,
+`displayName` and `enabled`, so other instances and any extra keys stay. Other settings, including
+`providerModelPreferences`, are preserved, and an unchanged file passes through byte for byte.
+
 ## Skills
 
 `skills sync` manages the clean main clone at `~/.local/share/skills/base`, calls

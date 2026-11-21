@@ -1,0 +1,59 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /*
+  T3 Code writes ~/.t3/userdata/settings.json itself: favorites changed in the app, provider
+  auth and model preferences. chezmoi does not own the file. It sets only the keys below, and
+  only when one is missing or differs; otherwise the file passes through unchanged, byte for byte.
+
+  favorites is the workspace list, in this order, and is replaced as a whole.
+  Each providerInstances entry sets only driver, displayName and enabled, so other instances
+  and any extra keys T3 stores on an instance stay.
+*/ -}}
+{{- $favorites := list
+  (dict "provider" "codex" "model" "gpt-6-luna")
+  (dict "provider" "claudeAgent" "model" "claude-opus-5-5")
+  (dict "provider" "grok" "model" "grok-4.7")
+  (dict "provider" "opencode" "model" "opencode-go/glm-5.3-flash")
+  (dict "provider" "claudeAgent" "model" "claude-fable-5-2")
+  (dict "provider" "codex" "model" "gpt-6.1-terra")
+  (dict "provider" "codex" "model" "gpt-6.2-sol")
+  (dict "provider" "codex" "model" "gpt-6.2-astra")
+  (dict "provider" "antigravity" "model" "gemini-4-neon")
+-}}
+{{- $scalars := dict
+  "favorites" $favorites
+  "projectSettingsFolded" true
+  "compactIdleThreads" true
+  "idleCompaction" "beforeCacheExpires"
+  "linkedEnvironmentsEnabled" true
+  "addProjectBaseDirectory" "/workspace"
+-}}
+{{- $instances := dict
+  "antigravity" (dict "driver" "antigravity" "displayName" "Antigravity" "enabled" true)
+  "grok" (dict "driver" "grok" "displayName" "Grok" "enabled" true)
+-}}
+{{- $config := dict -}}
+{{- if trim .chezmoi.stdin -}}
+{{-   $config = fromJson .chezmoi.stdin -}}
+{{- end -}}
+{{- $changed := false -}}
+{{- range $key, $value := $scalars -}}
+{{-   $current := dig $key "\x00unset" $config -}}
+{{-   if ne (toJson $current) (toJson $value) -}}
+{{-     $config = setValueAtPath $key $value $config -}}
+{{-     $changed = true -}}
+{{-   end -}}
+{{- end -}}
+{{- range $name, $entry := $instances -}}
+{{-   range $key, $value := $entry -}}
+{{-     $current := dig "providerInstances" $name $key "\x00unset" $config -}}
+{{-     if ne (toJson $current) (toJson $value) -}}
+{{-       $config = setValueAtPath (printf "providerInstances.%s.%s" $name $key) $value $config -}}
+{{-       $changed = true -}}
+{{-     end -}}
+{{-   end -}}
+{{- end -}}
+{{- if $changed -}}
+{{    toPrettyJson $config }}
+{{- else -}}
+{{    .chezmoi.stdin }}
+{{- end -}}
