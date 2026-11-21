@@ -3,14 +3,12 @@ tap "antopolskiy/tap", trusted: true
 tap "charmbracelet/tap", trusted: true
 tap "dotenvx/brew", trusted: true
 tap "equinix-labs/otel-cli", trusted: true
-tap "thoughtbot/formulae", trusted: true
 tap "wyrd-company/tools", trusted: true
 tap "xo/xo", trusted: true
 
 brew "wyrd-company/tools/agent-svgtools"
 brew "awscli"
 brew "wyrd-company/tools/beholder"
-brew "thoughtbot/formulae/complexity"
 brew "wyrd-company/tools/deck"
 brew "dotenvx"
 brew "envconsul"
