@@ -8,8 +8,8 @@
 #   complexity:  the task complexities it executes.
 #   risk:        the task risks it reviews.
 #   usd-cost-per-task, intelligence-index, time-per-task-min: Artificial
-#                Analysis Intelligence Index v5.0.1, from the effort's own model
-#                page (artificialanalysis.ai/models/<model>-<effort>).
+#                Analysis Intelligence Index v5.0.1 results for each effort.
+#                A model page may group results for multiple efforts.
 #
 # Dispatch is a lookup, not a judgment: from the entries that list the task's
 # `complexity` (or, for a review, its `risk`), take the cheapest. For a review,
@@ -167,6 +167,7 @@
 - model: gemini-4-neon
   provider: antigravity
   description: For complex software engineering, knowledge work, and science workflows.
+  # Use the middle two of Antigravity's four effort levels.
   efforts:
     - effort: high
       pareto: true
