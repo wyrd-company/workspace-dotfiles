@@ -29,7 +29,7 @@
       intelligence-index: 62
       time-per-task-min: 27.5
     - effort: high
-      pareto: true
+      pareto: false
       usd-cost-per-task: 9.08
       intelligence-index: 62
       time-per-task-min: 16.7
@@ -38,25 +38,25 @@
       usd-cost-per-task: 3.80
       intelligence-index: 56
       time-per-task-min: 8.0
-- model: gpt-6-astra
+- model: gpt-6.2-astra
   provider: codex
   description:  Good second opinion for difficult decisions/design work.
   efforts:
     - effort: xhigh
-      pareto: false
-      usd-cost-per-task: 3.66
-      intelligence-index: 55
-      time-per-task-min: 12.1
+      pareto: true
+      usd-cost-per-task: 2.52
+      intelligence-index: 62
+      time-per-task-min: 8.1
     - effort: high
-      pareto: false
-      usd-cost-per-task: 3.24
-      intelligence-index: 55
-      time-per-task-min: 9.7
+      pareto: true
+      usd-cost-per-task: 2.07
+      intelligence-index: 60
+      time-per-task-min: 6.7
     - effort: medium
-      pareto: false
-      usd-cost-per-task: 2.73
-      intelligence-index: 52
-      time-per-task-min: 7.5
+      pareto: true
+      usd-cost-per-task: 1.62
+      intelligence-index: 57
+      time-per-task-min: 5.1
 - model: opus-5.5
   provider: claude
   description: |
@@ -102,7 +102,7 @@
       usd-cost-per-task: 0.78
       intelligence-index: 31
       time-per-task-min: 4.0
-- model: gpt-6.1-sol
+- model: gpt-6.2-sol
   provider: codex
   description: |
     Detailed reviewer.
@@ -113,21 +113,21 @@
     - effort: xhigh
       pareto: true
       risk: [high]
-      usd-cost-per-task: 0.76
-      intelligence-index: 52
-      time-per-task-min: 10.5
+      usd-cost-per-task: 0.65
+      intelligence-index: 56
+      time-per-task-min: 6.2
     - effort: high
       pareto: true
       complexity: [normal]
       risk: [normal]
-      usd-cost-per-task: 0.59
-      intelligence-index: 50
-      time-per-task-min: 7.7
+      usd-cost-per-task: 0.56
+      intelligence-index: 55
+      time-per-task-min: 5.3
     - effort: medium
       pareto: true
-      usd-cost-per-task: 0.36
-      intelligence-index: 46
-      time-per-task-min: 4.5
+      usd-cost-per-task: 0.41
+      intelligence-index: 53
+      time-per-task-min: 3.6
 - model: gpt-6.1-terra
   provider: codex
   description: |
@@ -135,7 +135,7 @@
     Can be handed off independent subtasks with some direction and ability to escalate.
   efforts:
     - effort: xhigh
-      pareto: false
+      pareto: true
       usd-cost-per-task: 0.40
       intelligence-index: 45
       time-per-task-min: 6.6
@@ -170,12 +170,12 @@
   # Use the middle two of Antigravity's four effort levels.
   efforts:
     - effort: high
-      pareto: true
+      pareto: false
       usd-cost-per-task: 3.74
       intelligence-index: 60
       time-per-task-min: 14.7
     - effort: medium
-      pareto: true
+      pareto: false
       usd-cost-per-task: 1.90
       intelligence-index: 55
       time-per-task-min: 8.6
