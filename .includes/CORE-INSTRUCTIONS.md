@@ -38,6 +38,13 @@ If the skill already exists, use that skill.
 - Skills are DRY.
 - Tools/applications should have their own skill and skills that use them should reference them.
 
+## Responses
+
+- Lead with the answer, then what supports it.
+- Use the smallest form that makes it clear: a sentence, a list or table, or a code block such as pseudocode, a call tree, a file tree or a diff.
+- Say what you observed and what you concluded from it. Name anything you did not check.
+- Link the files, pull requests and pages you mention.
+
 ## Preventing Mistakes
 
 - Best. Change the architecture, code, framework, system, premise, etc. 
