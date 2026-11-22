@@ -15,6 +15,13 @@ When it isn't, we should record it as an observation. Add a memory and tag it ap
 
 What you learn about the process, the tools or the skills goes into memory as an observation, with tags. Do not write it into a skill: a later review of observations decides what changes. See the `memory` skill.
 
+### Memory calls
+
+Every memory call takes two choices from you:
+
+- **Folder:** pass the `memory/` folder of the project you are working in as `cwd`, to save and to search. That folder selects the project's store. With any other folder, a search misses the project's notes and a save to the project lands outside its store.
+- **Store:** name `scope` on every `remember`, chosen for the note. Use `global` when the note applies whatever the project, such as an operator profile or an observation about a shared tool or skill. Use `project` when it is specific to the project. A `remember` that names no `scope` is refused in a project whose store is not set up yet.
+
 ### Build the Lever
 
 We did something. Might we repeat it or make it simpler next time?
