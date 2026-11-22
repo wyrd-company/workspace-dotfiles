@@ -4,7 +4,7 @@
 # worth it at `low`, and do worse at `max` (or whatever their highest is).
 #
 # Each effort entry:
-#   pareto:      true when no other entry here is both cheaper and smarter.
+#   pareto:      true when no cheaper entry here has an equal or higher score.
 #   complexity:  the task complexities it executes.
 #   risk:        the task risks it reviews.
 #   usd-cost-per-task, intelligence-index, time-per-task-min: Artificial
@@ -34,7 +34,7 @@
       intelligence-index: 62
       time-per-task-min: 16.7
     - effort: medium
-      pareto: true
+      pareto: false
       usd-cost-per-task: 3.80
       intelligence-index: 56
       time-per-task-min: 8.0
@@ -48,7 +48,7 @@
       intelligence-index: 55
       time-per-task-min: 12.1
     - effort: high
-      pareto: true
+      pareto: false
       usd-cost-per-task: 3.24
       intelligence-index: 55
       time-per-task-min: 9.7
@@ -64,7 +64,7 @@
     Good design skills.
   efforts:
     - effort: xhigh
-      pareto: true
+      pareto: false
       complexity: [high]
       risk: [high]
       usd-cost-per-task: 6.05
@@ -162,3 +162,19 @@
       usd-cost-per-task: 6.18
       intelligence-index: 35
       time-per-task-min: 21.9
+
+# Per-effort benchmarks are grouped at https://artificialanalysis.ai/models/gemini-4-neon.
+- model: gemini-4-neon
+  provider: antigravity
+  description: For complex software engineering, knowledge work, and science workflows.
+  efforts:
+    - effort: high
+      pareto: true
+      usd-cost-per-task: 3.74
+      intelligence-index: 60
+      time-per-task-min: 14.7
+    - effort: medium
+      pareto: true
+      usd-cost-per-task: 1.90
+      intelligence-index: 55
+      time-per-task-min: 8.6
