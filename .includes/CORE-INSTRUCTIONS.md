@@ -41,7 +41,6 @@ If the skill already exists, use that skill.
 ## Responses
 
 - Each operator has a profile: a note in the main memory vault, tagged `operator-profile` and their handle (`git operator` shows the thread's). Read it before you report to them, and pitch your responses to it. Keep it current: when you learn what they know or how they want to be told, update it, or create it if there is none.
-
 - Lead with the answer, then what supports it.
 - By default, use plain language, suitable for a manager you are reporting to instead of a colleague, that does not assume deep context.
 - Use the smallest form that makes it clear: a sentence, a list or table, or a code block such as pseudocode, a call tree, a file tree or a diff.
