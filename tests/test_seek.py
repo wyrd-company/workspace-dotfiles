@@ -101,9 +101,12 @@ class SeekConfigTests(unittest.TestCase):
         self.assertNotIn(".config/seek", kept.stdout.splitlines())
 
     def write_config(self, text):
+        """Writes the config and returns an environment that names it and nothing else of the caller's: no SEEK_*,
+        BAO_* or VAULT_* setting, home or XDG directory leaks into seek."""
         (self.root / "seek").mkdir(exist_ok=True)
-        (self.root / "seek/client.yml").write_text(text)
-        return {**os.environ, "XDG_CONFIG_HOME": str(self.root)}
+        path = self.root / "seek/client.yml"
+        path.write_text(text)
+        return {"PATH": os.environ["PATH"], "HOME": str(self.root), "XDG_CONFIG_HOME": str(self.root), "SEEK_CONFIG": str(path)}
 
     @unittest.skipUnless(seek_0_4(), "seek 0.4 or later is not installed")
     def test_seek_accepts_the_config(self):
