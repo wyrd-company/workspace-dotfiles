@@ -155,7 +155,7 @@ class SeekUpgradeTests(unittest.TestCase):
     The fake brew installs `available` on `upgrade`, and `after_update` once `update` has run, standing in for a tap.
     """
 
-    def run_script(self, version, available=None, after_update=None):
+    def run_script(self, version, available=None, after_update=None, update_fails=False):
         temp = tempfile.TemporaryDirectory(prefix="seek-upgrade-test-")
         self.addCleanup(temp.cleanup)
         bin_dir = Path(temp.name)
@@ -166,7 +166,7 @@ class SeekUpgradeTests(unittest.TestCase):
         (bin_dir / "brew").write_text(
             "#!/bin/sh\n"
             f'echo "brew $*" >> {calls}\n'
-            f'case $1 in update) echo {after_update or available or version} > {tap} ;; '
+            f'case $1 in update) echo {after_update or available or version} > {tap}; exit {1 if update_fails else 0} ;; '
             f"upgrade) cp {tap} {state} ;; esac\n"
         )
         if version is not None:
@@ -191,6 +191,12 @@ class SeekUpgradeTests(unittest.TestCase):
             calls.splitlines(),
             ["brew upgrade wyrd-company/tools/seek-cli", "brew update --quiet", "brew upgrade wyrd-company/tools/seek-cli"],
         )
+
+    def test_upgrades_after_a_refresh_that_fails_part_way(self):
+        """brew update can exit non-zero yet still advance the tap: the second upgrade must still run."""
+        result, calls = self.run_script("0.3.1", available="0.3.1", after_update="0.4.0", update_fails=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(calls.splitlines()[-1], "brew upgrade wyrd-company/tools/seek-cli")
 
     def test_fails_while_seek_stays_too_old(self):
         """A non-zero exit makes chezmoi run the script again at the next apply."""

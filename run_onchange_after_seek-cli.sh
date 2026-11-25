@@ -13,9 +13,10 @@ too_old() {
 too_old || exit 0
 echo "seek $installed is older than $minimum, which ~/.config/seek/client.yml needs: upgrading" >&2
 brew upgrade "$formula" || true
-# A stale tap can report the old release as current: refresh the taps and try once more.
+# A stale tap can report the old release as current: refresh the taps and try once more. A refresh can fail part way
+# yet still advance the tap, so the version check below decides, not brew's exit status.
 if too_old; then
-  brew update --quiet
+  brew update --quiet || true
   brew upgrade "$formula" || true
 fi
 if too_old; then
