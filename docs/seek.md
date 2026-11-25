@@ -48,13 +48,15 @@ The Seek server's operator does this once, for all workspaces:
 
 To rotate the token:
 
-1. Append the new token to the server's list, keeping the old one, and wait for the server to reread it
-   (`server.secret-refresh-seconds`, 300).
-2. Store the new token at `kv/workspace/seek`.
-3. From a workspace, run a search (see [Checking](#checking)). It must succeed with the new token before you go on.
-4. Remove the old token from the server's list.
+1. Append the new token to the server's list, keeping the old one. The server rereads its list on the first request
+   after `server.secret-refresh-seconds` (300) have passed, so it can still refuse the new token for a while.
+2. Check that the server accepts the new token before any workspace uses it: from the workstation, run a search with
+   it as `SEEK_SERVER_TOKEN_VALUE`, and repeat after a short wait until it no longer answers 401.
+3. Store the new token at `kv/workspace/seek`.
+4. From a workspace, run a search (see [Checking](#checking)). It must succeed before you go on.
+5. Remove the old token from the server's list.
 
-A workspace reads `kv/workspace/seek` on every call, so it uses the new token from step 2 with no restart.
+A workspace reads `kv/workspace/seek` on every call, so it uses the new token from step 3 with no restart.
 
 ## Checking
 
