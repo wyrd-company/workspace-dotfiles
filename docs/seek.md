@@ -6,16 +6,19 @@ client token that it reads from OpenBao through the Wyrwood socket.
 
 chezmoi writes `~/.config/seek/client.yml` from `dot_config/seek/client.yml.tmpl` and `.chezmoidata/seek.yml`:
 
-- `url`: the Seek server, `https://seek.internal`. While it is empty, no config is written and `seek` calls providers
-  with whatever local keys it finds.
+- `url`: the Seek server, `https://seek.internal`. While it is empty, no config is written. See
+  [Direct mode](#direct-mode) to stop using a server after the file exists.
 - `token`: the KV v2 field that holds the workspace client token, `kv/workspace/seek`, field `token`. The path is
   relative to the namespace that the socket sets.
 
-The token's `vault` block names the socket and `auth: none` itself. The socket adds the binding's login and namespace,
-so seek sends no token of its own. Because the block is the token's own, an exported `BAO_ADDR`, `BAO_TOKEN` or
-`BAO_NAMESPACE` does not change where the token is read. seek reads it only when a command calls the server.
+The token's `vault` block names the socket, `auth: none` and `namespace: ""` itself. The socket adds the binding's login
+and namespace, so seek sends neither. No exported variable overrides a source's own block, so an exported `BAO_ADDR`,
+`BAO_TOKEN` or `BAO_NAMESPACE` changes neither where the token is read nor what seek sends. seek reads the token only
+when a command calls the server.
 
-This needs seek 0.4.0 or later. Older clients ignore `client.yml`.
+This needs seek 0.4.0 or later: older clients ignore `client.yml`. `brew bundle` leaves an installed seek alone, so
+`run_onchange_after_seek-cli.sh` runs `brew upgrade wyrd-company/tools/seek-cli` once when the installed seek is older.
+Check with `seek --version`.
 
 ## Onboarding
 
@@ -43,8 +46,15 @@ The Seek server's operator does this once, for all workspaces:
    This is the only Seek path a workspace can read. The server's own secret also holds the provider keys, so
    workspaces get their own token rather than read access to it.
 
-To rotate the token, add the new token to the server's list, store it at `kv/workspace/seek`, then remove the old one
-from the list.
+To rotate the token:
+
+1. Append the new token to the server's list, keeping the old one, and wait for the server to reread it
+   (`server.secret-refresh-seconds`, 300).
+2. Store the new token at `kv/workspace/seek`.
+3. From a workspace, run a search (see [Checking](#checking)). It must succeed with the new token before you go on.
+4. Remove the old token from the server's list.
+
+A workspace reads `kv/workspace/seek` on every call, so it uses the new token from step 2 with no restart.
 
 ## Checking
 
@@ -53,9 +63,19 @@ seek config show       # server.url and server.token = vault, auth: none; reads 
 seek web exa "test"    # one real search through the server
 ```
 
-Before step 3, a command that calls the server fails with
+Before onboarding step 3, a command that calls the server fails with
 `server.token: vault GET /v1/kv/data/workspace/seek failed: HTTP 403`. If the token is stored but missing from the
 server's list, the server answers `HTTP 401 ... missing or invalid seek server token`.
 
-Check the rendering with `python3 -m unittest tests.test_seek`. The test that runs `seek config validate` is skipped
-when the installed seek is older than 0.4.
+## Direct mode
+
+To have seek call providers with local keys instead of the server, set `seek.url` to `""` in
+`.chezmoidata/zz-fork/seek.yml` (see `docs/fork-overlay.md`). chezmoi then stops managing `~/.config/seek` but leaves
+the file it wrote, so remove it once: `rm ~/.config/seek/client.yml`. Then configure the provider keys as seek's
+[credentials guide](https://wyrd.foo/docs/seek/credentials/) says.
+
+## Tests
+
+Check the rendering with `python3 -m unittest tests.test_seek`. The tests that run seek are skipped when the
+installed seek is older than 0.4. One runs seek against a synthetic Unix-socket KV server with `BAO_*` exported for
+another server, and checks that the socket gets no login or namespace header.
