@@ -46,15 +46,45 @@ The Seek server's operator does this once, for all workspaces:
    This is the only Seek path a workspace can read. The server's own secret also holds the provider keys, so
    workspaces get their own token rather than read access to it.
 
-To rotate the token:
+To rotate the token, from a workstation that can read and write `kv` in namespace `wyrwood`, in one shell so the
+new token stays in a variable and out of history:
 
-1. Append the new token to the server's list, keeping the old one. The server rereads its list on the first request
-   after `server.secret-refresh-seconds` (300) have passed, so it can still refuse the new token for a while.
-2. Check that the server accepts the new token before any workspace uses it: from the workstation, run a search with
-   it as `SEEK_SERVER_TOKEN_VALUE`, and repeat after a short wait until it no longer answers 401.
-3. Store the new token at `kv/workspace/seek`.
-4. From a workspace, run a search (see [Checking](#checking)). It must succeed before you go on.
-5. Remove the old token from the server's list.
+1. Generate the new token and append it to the server's list, keeping the old one. For the homelab server:
+
+   ```bash
+   new=$(openssl rand -hex 32)
+   list=$(bao kv get -namespace=wyrwood -mount=kv -field=SEEK_SERVER_TOKEN homelab/seek)
+   printf '%s,%s' "$list" "$new" | bao kv patch -namespace=wyrwood -mount=kv homelab/seek SEEK_SERVER_TOKEN=-
+   ```
+
+   The server rereads its list on the first request after `server.secret-refresh-seconds` (300) have passed, so it
+   can still refuse the new token for a while.
+
+2. Check that the server accepts the new token before any workspace uses it. Repeat after a short wait until this
+   search succeeds:
+
+   ```bash
+   SEEK_SERVER_URL=https://seek.internal SEEK_SERVER_TOKEN_VALUE=$new seek web exa "test"
+   ```
+
+   Name the server: without `SEEK_SERVER_URL`, a workstation with no client config calls providers directly and the
+   search proves nothing.
+
+3. Store the new token for workspaces:
+
+   ```bash
+   printf '%s' "$new" | bao kv put -namespace=wyrwood -mount=kv workspace/seek token=-
+   ```
+
+4. From a workspace, run a search (see [Checking](#checking)). It must succeed, now with the new token, before you go
+   on.
+
+5. Leave only the new token in the server's list, then clear the shell's copies:
+
+   ```bash
+   printf '%s' "$new" | bao kv patch -namespace=wyrwood -mount=kv homelab/seek SEEK_SERVER_TOKEN=-
+   unset new list
+   ```
 
 A workspace reads `kv/workspace/seek` on every call, so it uses the new token from step 3 with no restart.
 
@@ -73,8 +103,10 @@ server's list, the server answers `HTTP 401 ... missing or invalid seek server t
 
 To have seek call providers with local keys instead of the server, set `seek.url` to `""` in
 `.chezmoidata/zz-fork/seek.yml` (see `docs/fork-overlay.md`). chezmoi then stops managing `~/.config/seek` but leaves
-the file it wrote, so remove it once: `rm ~/.config/seek/client.yml`. Then configure the provider keys as seek's
-[credentials guide](https://wyrd.foo/docs/seek/credentials/) says.
+the file it wrote, so remove it once: `rm ~/.config/seek/client.yml`. `SEEK_SERVER_URL` also selects server mode, so
+unset it where your shell exports it. Then configure the provider keys as seek's
+[credentials guide](https://wyrd.foo/docs/seek/credentials/) says, and check with `seek config show` that
+`server.url` is unset.
 
 ## Tests
 
