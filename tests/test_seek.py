@@ -14,6 +14,7 @@ import unittest
 
 REPO = Path(__file__).resolve().parents[1]
 TEMPLATE = REPO / "dot_config/seek/client.yml.tmpl"
+UPGRADE = REPO / "run_onchange_after_seek-cli.sh"
 IGNORE = REPO / ".chezmoiignore"
 SOCKET = "unix:///run/wyrwood/vault.sock"
 SYNTHETIC_TOKEN = "synthetic-workspace-token"
@@ -143,6 +144,36 @@ class SeekConfigTests(unittest.TestCase):
         self.assertNotIn("x-vault-token", headers)
         self.assertNotIn("x-vault-namespace", headers)
         self.assertEqual([r["headers"].get("authorization") for r in seek.requests], [f"Bearer {SYNTHETIC_TOKEN}"])
+
+
+class SeekUpgradeTests(unittest.TestCase):
+    """The run script upgrades a seek older than 0.4.0, with fake seek and brew commands."""
+
+    def run_script(self, version):
+        temp = tempfile.TemporaryDirectory(prefix="seek-upgrade-test-")
+        self.addCleanup(temp.cleanup)
+        bin_dir = Path(temp.name)
+        calls = bin_dir / "calls"
+        (bin_dir / "brew").write_text(f'#!/bin/sh\necho "brew $*" >> {calls}\n')
+        if version is not None:
+            (bin_dir / "seek").write_text(f"#!/bin/sh\necho {version}\n")
+        for tool in bin_dir.iterdir():
+            tool.chmod(0o755)
+        path = f"{bin_dir}:/usr/bin:/bin"
+        result = subprocess.run(["bash", str(UPGRADE)], text=True, capture_output=True, timeout=30, env={"PATH": path})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return calls.read_text() if calls.exists() else ""
+
+    def test_upgrades_a_seek_older_than_0_4(self):
+        self.assertEqual(self.run_script("0.3.1"), "brew upgrade wyrd-company/tools/seek-cli\n")
+
+    def test_leaves_0_4_and_later_alone(self):
+        for version in ("0.4.0", "0.4.1", "0.10.0", "1.0.0"):
+            with self.subTest(version=version):
+                self.assertEqual(self.run_script(version), "")
+
+    def test_does_nothing_without_seek(self):
+        self.assertEqual(self.run_script(None), "")
 
 
 if __name__ == "__main__":
