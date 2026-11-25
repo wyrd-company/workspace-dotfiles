@@ -1,0 +1,10 @@
+# The Seek server the `seek` CLI sends searches to (dot_config/seek/client.yml.tmpl, docs/seek.md). Nothing here is
+# secret. While url is empty, chezmoi writes no Seek config, and seek calls providers with local keys instead.
+seek:
+  url: https://seek.internal
+  # The KV v2 field that holds the workspace's client token, read through the Wyrwood socket. The path is relative to
+  # the namespace the socket sets (wyrwood).
+  token:
+    mount: kv
+    path: workspace/seek
+    key: token

@@ -12,6 +12,9 @@ See `docs/install-scripts.md`. npm commands are linked into `~/.local/bin`; see 
 
 Deck, the Discord conversation CLI, is configured from `.chezmoidata/deck.yml`. See `docs/deck.md`.
 
+The `seek` CLI sends searches to the Seek server in `.chezmoidata/seek.yml`, with a client token read from OpenBao
+through the Wyrwood socket. See `docs/seek.md`.
+
 `ledger` records the resources a thread or task acquires and how to clean them up, in Skate databases; the boat
 wrapper records sandboxes itself. See `docs/ledger.md`.
 

@@ -1,0 +1,14 @@
+# Managed by chezmoi (workspace-dotfiles, dot_config/seek/client.yml.tmpl). See docs/seek.md.
+server:
+  url: {{ .seek.url | quote }}
+  # The client token is read from OpenBao when a command calls the server. The Wyrwood socket adds the binding's
+  # login and namespace, so seek sends none (auth none). The token's own vault block keeps an exported BAO_ADDR,
+  # BAO_TOKEN or BAO_NAMESPACE from changing where it is read.
+  token:
+    vault:
+      address: unix:///run/wyrwood/vault.sock
+      auth:
+        mode: none
+      mount: {{ .seek.token.mount | quote }}
+      path: {{ .seek.token.path | quote }}
+      key: {{ .seek.token.key | quote }}

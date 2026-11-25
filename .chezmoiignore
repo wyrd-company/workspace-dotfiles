@@ -7,3 +7,6 @@ LICENSE
 README.md
 # Deck: no config until the service's host key is known
 {{ if not .deck.host_key }}.config/deck{{ end }}
+
+# Seek: no config until a server is named
+{{ if not .seek.url }}.config/seek{{ end }}
