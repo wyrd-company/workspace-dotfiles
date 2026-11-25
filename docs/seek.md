@@ -47,11 +47,13 @@ The Seek server's operator does this once, for all workspaces:
    workspaces get their own token rather than read access to it.
 
 To rotate the token, from a workstation that can read and write `kv` in namespace `wyrwood`, in one shell so the
-new token stays in a variable and out of history:
+tokens stay in variables and out of history and process arguments. The server's list can hold other clients' tokens
+too; these steps add and remove only the workspace token. The commands are for the homelab server.
 
-1. Generate the new token and append it to the server's list, keeping the old one. For the homelab server:
+1. Generate the new token and append it to the server's list, keeping every token already there:
 
    ```bash
+   old=$(bao kv get -namespace=wyrwood -mount=kv -field=token workspace/seek)
    new=$(openssl rand -hex 32)
    list=$(bao kv get -namespace=wyrwood -mount=kv -field=SEEK_SERVER_TOKEN homelab/seek)
    printf '%s,%s' "$list" "$new" | bao kv patch -namespace=wyrwood -mount=kv homelab/seek SEEK_SERVER_TOKEN=-
@@ -70,20 +72,26 @@ new token stays in a variable and out of history:
    Name the server: without `SEEK_SERVER_URL`, a workstation with no client config calls providers directly and the
    search proves nothing.
 
-3. Store the new token for workspaces:
+3. Store the new token for workspaces, and confirm OpenBao now holds it. Stop here if either command fails or the
+   check does not print `stored`: workspaces still use the old token, so it must stay on the server's list.
 
    ```bash
    printf '%s' "$new" | bao kv put -namespace=wyrwood -mount=kv workspace/seek token=-
+   [ "$(bao kv get -namespace=wyrwood -mount=kv -field=token workspace/seek)" = "$new" ] && echo stored
    ```
 
-4. From a workspace, run a search (see [Checking](#checking)). It must succeed, now with the new token, before you go
-   on.
+4. From a workspace, run a search (see [Checking](#checking)). It must succeed before you go on. After step 3 it can
+   only be using the new token.
 
-5. Leave only the new token in the server's list, then clear the shell's copies:
+5. Remove only the old workspace token from the server's list, keeping every other entry, then clear the shell's
+   copies:
 
    ```bash
-   printf '%s' "$new" | bao kv patch -namespace=wyrwood -mount=kv homelab/seek SEEK_SERVER_TOKEN=-
-   unset new list
+   list=$(bao kv get -namespace=wyrwood -mount=kv -field=SEEK_SERVER_TOKEN homelab/seek)
+   printf '%s' "$list" |
+     OLD=$old awk 'BEGIN { RS = ","; ORS = "" } $0 != ENVIRON["OLD"] { printf "%s%s", sep, $0; sep = "," }' |
+     bao kv patch -namespace=wyrwood -mount=kv homelab/seek SEEK_SERVER_TOKEN=-
+   unset old new list
    ```
 
 A workspace reads `kv/workspace/seek` on every call, so it uses the new token from step 3 with no restart.
