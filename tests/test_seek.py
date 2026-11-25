@@ -147,34 +147,65 @@ class SeekConfigTests(unittest.TestCase):
 
 
 class SeekUpgradeTests(unittest.TestCase):
-    """The run script upgrades a seek older than 0.4.0, with fake seek and brew commands."""
+    """The run script upgrades a seek older than 0.4.0, with fake seek and brew commands.
 
-    def run_script(self, version):
+    The fake brew installs `available` on `upgrade`, and `after_update` once `update` has run, standing in for a tap.
+    """
+
+    def run_script(self, version, available=None, after_update=None):
         temp = tempfile.TemporaryDirectory(prefix="seek-upgrade-test-")
         self.addCleanup(temp.cleanup)
         bin_dir = Path(temp.name)
         calls = bin_dir / "calls"
-        (bin_dir / "brew").write_text(f'#!/bin/sh\necho "brew $*" >> {calls}\n')
+        state = bin_dir / "version"
+        tap = bin_dir / "tap"
+        tap.write_text(available or version or "")
+        (bin_dir / "brew").write_text(
+            "#!/bin/sh\n"
+            f'echo "brew $*" >> {calls}\n'
+            f'case $1 in update) echo {after_update or available or version} > {tap} ;; '
+            f"upgrade) cp {tap} {state} ;; esac\n"
+        )
         if version is not None:
-            (bin_dir / "seek").write_text(f"#!/bin/sh\necho {version}\n")
-        for tool in bin_dir.iterdir():
-            tool.chmod(0o755)
+            state.write_text(version)
+            (bin_dir / "seek").write_text(f"#!/bin/sh\ncat {state}\n")
+        for tool in (bin_dir / "brew", bin_dir / "seek"):
+            if tool.exists():
+                tool.chmod(0o755)
         path = f"{bin_dir}:/usr/bin:/bin"
         result = subprocess.run(["bash", str(UPGRADE)], text=True, capture_output=True, timeout=30, env={"PATH": path})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        return calls.read_text() if calls.exists() else ""
+        return result, calls.read_text() if calls.exists() else ""
 
     def test_upgrades_a_seek_older_than_0_4(self):
-        self.assertEqual(self.run_script("0.3.1"), "brew upgrade wyrd-company/tools/seek-cli\n")
+        result, calls = self.run_script("0.3.1", available="0.4.0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(calls, "brew upgrade wyrd-company/tools/seek-cli\n")
+
+    def test_refreshes_a_stale_tap_once(self):
+        result, calls = self.run_script("0.3.1", available="0.3.1", after_update="0.4.0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            calls.splitlines(),
+            ["brew upgrade wyrd-company/tools/seek-cli", "brew update --quiet", "brew upgrade wyrd-company/tools/seek-cli"],
+        )
+
+    def test_fails_while_seek_stays_too_old(self):
+        """A non-zero exit makes chezmoi run the script again at the next apply."""
+        result, _ = self.run_script("0.3.1", available="0.3.1", after_update="0.3.1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("brew update && brew upgrade wyrd-company/tools/seek-cli", result.stderr)
 
     def test_leaves_0_4_and_later_alone(self):
         for version in ("0.4.0", "0.4.1", "0.10.0", "1.0.0"):
             with self.subTest(version=version):
-                self.assertEqual(self.run_script(version), "")
+                result, calls = self.run_script(version)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(calls, "")
 
     def test_does_nothing_without_seek(self):
-        self.assertEqual(self.run_script(None), "")
-
+        result, calls = self.run_script(None)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(calls, "")
 
 if __name__ == "__main__":
     unittest.main()
