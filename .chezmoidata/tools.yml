@@ -1,0 +1,155 @@
+- name: agent-browser
+  description: gives an AI agent a browser it can drive one command at a time
+  install:
+    npm: agent-browser
+- name: agent-svgtools
+  description: closes the feedback loop for AI coding agents authoring SVG files from raster reference images
+  install:
+    brew: "wyrd-company/tools/agent-svgtools"
+- name: awscli
+  description: manage your AWS services
+  install:
+    brew: awscli
+- name: bao
+  description: interact with an OpenBao secrets management server
+  install:
+    brew: openbao
+- name: beholder
+  description: indexes symbols, complexity, references, and cohesion, then compares revisions to rank the structural risk in a change.
+  install:
+    brew: wyrd-company/tools/beholder
+- name: boat
+  description: gives you sandboxes. A sandbox is a full Linux virtual machine with its own disk. You stop it to stop paying. You can resume it with the same disk for at least 14 days.
+  install:
+    url: https://boat.dev/install
+    bin: ~/.ascii/bin/boat
+    env:
+      SHELL: /bin/sh
+    sed:
+      - 's|"\$INSTALL_DIR/\$MODE" onboard < /dev/tty|:|'
+      - 's|"\$INSTALL_DIR/\$MODE" onboard|:|'
+- name: dagu
+  description: workflow orchestrator
+- name: deck
+  description: Discord client that posts questions, reads replies and connects each conversation to its local session
+  install:
+    brew: wyrd-company/tools/deck
+- name: docker
+  description: run applications in containers
+- name: envconsul
+  description: launch a subprocess with environment variables populated from OpenBao/Vault.
+  install:
+    brew: wyrd-company/tools/envconsul
+- name: freeze
+  description: generates PNGs, SVGs, and WebPs of code and terminal output alike.
+  install:
+    brew: charmbracelet/tap/freeze
+- name: gh
+  description: brings GitHub to your terminal. 
+  install:
+    brew: gh
+- name: gifsicle
+  description: create, edit, and get information about GIF images and animations.
+  install:
+    brew: gifsicle
+- name: glow
+  description: render markdown on the CLI, with pizzazz!
+  install:
+    brew: glow
+- name: gum
+  description: highly configurable, ready-to-use utilities to help you write useful shell scripts and dotfile aliases with just a few lines of code.
+  install:
+    brew: gum
+- name: gitpr
+  description: turns worktree branches into lightweight pull requests against your local default branch — no server, no remote, no forge.
+  install:
+    brew: wyrd-company/tools/gitpr
+- name: imagemagick
+  description: software suite for creating, editing, converting, and manipulating images in over 200 formats.
+  install:
+    brew: imagemagick
+- name: intentional
+  description: intent-driven polyglot release and versioning
+  install:
+    brew: wyrd-company/tools/intentional
+- name: jq
+  description: JSON processor
+  install:
+    brew: jq
+- name: kanban-md
+  description: file-based Kanban
+  install:
+    brew: antopolskiy/tap/kanban-md
+- name: ledger
+  description: record what a thread or task acquires (sandboxes, worktrees, branches, ...) and how to clean it up
+- name: lefthook
+  description: Git hooks manager
+  install:
+    brew: lefthook
+- name: mnemonic
+  install:
+    npm: "@danielmarbach/mnemonic-mcp"
+- name: ntfy
+  description: simple HTTP-based pub-sub notification service
+  install:
+    brew: ntfy
+- name: otel-cli
+  description: a command-line tool for sending OpenTelemetry traces
+  install:
+    brew: otel-cli
+- name: postplan
+  description: publishing static HTML drafts from agents
+  install:
+    npm: postplan
+- name: pipx
+  description: installs and runs Python command-line applications in isolated virtual environments while exposing their executables on your PATH
+  install:
+    brew: pipx
+- name: prettier
+  description: an opinionated code formatter
+  install:
+    brew: prettier
+- name: rg
+  description: a line-oriented search tool that recursively searches the current directory for a regex pattern
+  install:
+    brew: ripgrep
+- name: rumdl
+  description: Markdown checking and formatting
+  install:
+    brew: rumbdl
+- name: ryl
+  description: YAML linter and formatter
+  install:
+    brew: ryl
+- name: seek
+  description: web search, research & scraping
+  install:
+    npm: @wyrd-company/seek-cli
+- name: skate
+  description: local key-value store
+  install:
+    brew: charmbracelet/tap/skate
+- name: task
+  description: cross-platform build tool
+  install:
+    brew: go-task
+- name: toha
+  description: generate projects and files from templates
+  install:
+    brew: wyrd-company/tools/toha
+- name: uv
+  description: Python package and project manager
+  install:
+    brew: uv
+- name: vhs
+  description: write terminal GIFs as code for integration testing and demoing your CLI tools.
+  install:
+    brew: vhs
+- name: yq
+  description: YAML processor
+  install:
+    brew: yq
+- name: zellij
+  description: a terminal-multiplexer
+  install:
+    brew: zellij
