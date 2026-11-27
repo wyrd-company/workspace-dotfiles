@@ -1,0 +1,3 @@
+url: "https://excalidash.internal"
+vault-mount: "kv"
+vault-path: "workspace/excalidash"
